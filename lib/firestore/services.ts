@@ -118,12 +118,13 @@ export async function getNextSequenceNumber(
 // CATEGORIES
 export async function getCategories(onlyActive = false): Promise<Category[]> {
   try {
-    let q = query(categoriesCol, orderBy('name', 'asc'));
+    let q = query(categoriesCol);
     if (onlyActive) {
-      q = query(categoriesCol, where('active', '==', true), orderBy('name', 'asc'));
+      q = query(categoriesCol, where('active', '==', true));
     }
     const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as Category));
+    const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Category));
+    return list.sort((a, b) => a.name.localeCompare(b.name));
   } catch (err) {
     console.error('Error fetching categories:', err);
     return [];
@@ -167,12 +168,14 @@ export async function deleteCategory(id: string): Promise<{ success: boolean; me
 // PRODUCTS
 export async function getProducts(options?: { categoryId?: string; onlyActive?: boolean; featured?: boolean; limitCount?: number }): Promise<Product[]> {
   try {
-    let q = query(productsCol, orderBy('name', 'asc'));
+    let q = query(productsCol);
     if (options?.onlyActive) {
-      q = query(productsCol, where('active', '==', true), orderBy('name', 'asc'));
+      q = query(productsCol, where('active', '==', true));
     }
     const snap = await getDocs(q);
     let list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Product));
+
+    list.sort((a, b) => a.name.localeCompare(b.name));
 
     if (options?.categoryId && options.categoryId !== 'all') {
       list = list.filter(p => p.categoryId === options.categoryId);

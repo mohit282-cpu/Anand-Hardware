@@ -1,321 +1,185 @@
-'use client';
-
-import React, { useEffect, useState, useMemo } from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { Search, Filter, Layers, FileText, Check, SlidersHorizontal, RefreshCw } from 'lucide-react';
+import Image from 'next/image';
+import { Search, Filter, Layers, FileText, CheckCircle2, ArrowRight, PackageCheck, SlidersHorizontal } from 'lucide-react';
 import { getCategories, getProducts } from '@/lib/firestore/services';
 import { Category, Product } from '@/types';
-import { QuotationModal } from '@/components/public/QuotationModal';
 
-function ProductsCatalogContent() {
-  const searchParams = useSearchParams();
-  const initialCategory = searchParams.get('category') || 'all';
-  const initialSearch = searchParams.get('search') || '';
+// Incremental Static Regeneration (ISR): Cache & revalidate every 1 hour (3600s)
+export const revalidate = 3600;
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
-  const [searchQuery, setSearchQuery] = useState<string>(initialSearch);
-  const [inStockOnly, setInStockOnly] = useState<boolean>(false);
-  const [featuredOnly, setFeaturedOnly] = useState<boolean>(false);
-  const [sortBy, setSortBy] = useState<'newest' | 'price_asc' | 'price_desc' | 'name'>('newest');
-
-  const [quoteModalOpen, setQuoteModalOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<{ id?: string; name: string } | undefined>(undefined);
-
-  useEffect(() => {
-    async function loadCatalog() {
-      setLoading(true);
-      try {
-        const [catData, prodData] = await Promise.all([
-          getCategories(true),
-          getProducts({ onlyActive: true }),
-        ]);
-        setCategories(catData);
-        setProducts(prodData);
-      } catch (err) {
-        console.error('Error loading products catalog:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadCatalog();
-  }, []);
-
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      // Category Filter
-      if (selectedCategory !== 'all') {
-        if (p.categoryId !== selectedCategory && p.slug !== selectedCategory) {
-          return false;
-        }
-      }
-      // Search Filter
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchName = p.name.toLowerCase().includes(q);
-        const matchSku = p.sku.toLowerCase().includes(q);
-        const matchBrand = p.brand.toLowerCase().includes(q);
-        const matchCat = p.categoryName.toLowerCase().includes(q);
-        const matchDesc = p.description.toLowerCase().includes(q);
-        if (!matchName && !matchSku && !matchBrand && !matchCat && !matchDesc) {
-          return false;
-        }
-      }
-      // In Stock Only Filter
-      if (inStockOnly && p.stock <= 0) {
-        return false;
-      }
-      // Featured Only Filter
-      if (featuredOnly && !p.featured) {
-        return false;
-      }
-      return true;
-    }).sort((a, b) => {
-      if (sortBy === 'price_asc') return a.price - b.price;
-      if (sortBy === 'price_desc') return b.price - a.price;
-      if (sortBy === 'name') return a.name.localeCompare(b.name);
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
-  }, [products, selectedCategory, searchQuery, inStockOnly, featuredOnly, sortBy]);
-
-  const handleOpenQuote = (product?: Product) => {
-    if (product) {
-      setSelectedProduct({ id: product.id, name: product.name });
-    } else {
-      setSelectedProduct(undefined);
-    }
-    setQuoteModalOpen(true);
+interface ProductsPageProps {
+  searchParams: {
+    category?: string;
+    search?: string;
+    page?: string;
   };
+}
 
-  const handleResetFilters = () => {
-    setSelectedCategory('all');
-    setSearchQuery('');
-    setInStockOnly(false);
-    setFeaturedOnly(false);
-    setSortBy('newest');
-  };
+export default async function ProductsCatalogPage({ searchParams }: ProductsPageProps) {
+  const selectedCategory = searchParams.category || 'all';
+  const searchQuery = (searchParams.search || '').trim().toLowerCase();
+
+  const [categories, allProducts] = await Promise.all([
+    getCategories(true),
+    getProducts({
+      onlyActive: true,
+      categoryId: selectedCategory !== 'all' ? selectedCategory : undefined,
+      limitCount: 48,
+    }),
+  ]);
+
+  // Server-side search filtering
+  const filteredProducts = allProducts.filter((p) => {
+    if (!searchQuery) return true;
+    const matchName = p.name.toLowerCase().includes(searchQuery);
+    const matchSku = p.sku.toLowerCase().includes(searchQuery);
+    const matchDesc = p.description.toLowerCase().includes(searchQuery);
+    return matchName || matchSku || matchDesc;
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-      {/* Header Title */}
-      <div className="border-b border-slate-200 pb-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-black text-navy-950">Product Catalog</h1>
-            <p className="text-xs text-slate-500 mt-1">
-              Browse genuine hardware supplies, construction materials, pipes, wiring, and tools in Biratnagar.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500">Showing {filteredProducts.length} items</span>
-          </div>
-        </div>
-      </div>
-
-      {/* SEARCH AND FILTERS TOOLBAR */}
-      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* Search Input */}
-          <div className="md:col-span-2 relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by product name, SKU, brand, or specs..."
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
-            />
-          </div>
-
-          {/* Category Selector */}
-          <div>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
-            >
-              <option value="all">All Categories</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Sort Selector */}
-          <div>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
-            >
-              <option value="newest">Sort by: Newest Arrivals</option>
-              <option value="price_asc">Price: Low to High</option>
-              <option value="price_desc">Price: High to Low</option>
-              <option value="name">Product Name (A-Z)</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Filter Toggles Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-slate-100">
-          <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-700">
-            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={inStockOnly}
-                onChange={(e) => setInStockOnly(e.target.checked)}
-                className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500"
-              />
-              <span>In-Stock Only</span>
-            </label>
-
-            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={featuredOnly}
-                onChange={(e) => setFeaturedOnly(e.target.checked)}
-                className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500"
-              />
-              <span>Featured Products</span>
-            </label>
-          </div>
-
-          <button
-            onClick={handleResetFilters}
-            className="text-xs font-bold text-slate-500 hover:text-brand-600 flex items-center gap-1.5 transition"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Reset All Filters
-          </button>
-        </div>
-      </div>
-
-      {/* PRODUCT GRID */}
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-            <div key={n} className="h-80 bg-white rounded-2xl border border-slate-200 animate-pulse" />
-          ))}
-        </div>
-      ) : filteredProducts.length === 0 ? (
-        <div className="bg-white rounded-2xl p-12 border border-slate-200 text-center space-y-4 max-w-lg mx-auto">
-          <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400">
-            <SlidersHorizontal className="w-6 h-6" />
-          </div>
-          <h3 className="text-lg font-bold text-navy-950">No Products Matched Your Criteria</h3>
-          <p className="text-xs text-slate-500">
-            Try adjusting your search query, clearing category filters, or turning off the in-stock constraint.
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
+        <div>
+          <h1 className="text-3xl font-black text-navy-950 tracking-tight">Products Catalog</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Explore authentic hardware, CPVC pipes, Asian paints, cement, and electrical supplies in Biratnagar.
           </p>
-          <button
-            onClick={handleResetFilters}
-            className="px-5 py-2.5 bg-brand-600 text-white font-bold text-xs rounded-xl shadow hover:bg-brand-700 transition"
+        </div>
+      </div>
+
+      {/* Filter & Search Bar */}
+      <div className="bg-white rounded-3xl p-4 border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+        {/* Search Input */}
+        <form action="/products" method="GET" className="relative w-full md:w-96">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+          <input
+            type="text"
+            name="search"
+            defaultValue={searchParams.search || ''}
+            placeholder="Search by name, SKU, or specs..."
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
+          />
+          {selectedCategory !== 'all' && (
+            <input type="hidden" name="category" value={selectedCategory} />
+          )}
+        </form>
+
+        {/* Category Pills */}
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <Link
+            href="/products"
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${
+              selectedCategory === 'all'
+                ? 'bg-navy-950 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
           >
-            Clear Filters
-          </button>
+            All Products
+          </Link>
+          {categories.map((cat) => {
+            const isCatActive = selectedCategory === cat.slug || selectedCategory === cat.id;
+            return (
+              <Link
+                key={cat.id}
+                href={`/products?category=${cat.slug || cat.id}${searchParams.search ? `&search=${searchParams.search}` : ''}`}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${
+                  isCatActive
+                    ? 'bg-navy-950 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                {cat.name}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* PRODUCTS GRID */}
+      {filteredProducts.length === 0 ? (
+        <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 space-y-3">
+          <PackageCheck className="w-12 h-12 text-slate-300 mx-auto" />
+          <h3 className="text-lg font-bold text-navy-950">No Matching Products Found</h3>
+          <p className="text-xs text-slate-500">Try adjusting your search terms or selecting a different category.</p>
+          <Link href="/products" className="inline-block px-4 py-2 bg-brand-600 text-white text-xs font-bold rounded-xl shadow">
+            Reset Catalog Filters
+          </Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {filteredProducts.map((prod) => (
             <div
               key={prod.id}
-              className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm hover:shadow-lg transition flex flex-col justify-between group"
+              className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl transition flex flex-col group"
             >
-              <div>
-                {/* Product Image */}
-                <div className="relative h-48 bg-slate-100 overflow-hidden flex items-center justify-center">
-                  {prod.imageUrl ? (
-                    <img
-                      src={prod.imageUrl}
-                      alt={prod.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center text-slate-400 text-xs">
-                      <Layers className="w-8 h-8 mb-1 text-slate-300" />
-                      <span>Anand Hardware</span>
-                    </div>
-                  )}
-
-                  {/* Stock Status Badge */}
-                  <span
-                    className={`absolute top-2 right-2 px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider ${
-                      prod.stock <= 0
-                        ? 'bg-rose-100 text-rose-700 border border-rose-200'
-                        : prod.stock <= prod.lowStockLevel
-                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                        : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                    }`}
-                  >
-                    {prod.stock <= 0 ? 'Out of stock' : prod.stock <= prod.lowStockLevel ? 'Low stock' : 'In stock'}
+              {/* Product Image */}
+              <div className="relative h-48 bg-slate-100 overflow-hidden">
+                {prod.imageUrl ? (
+                  <Image
+                    src={prod.imageUrl}
+                    alt={prod.name}
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                    className="object-cover group-hover:scale-105 transition duration-300"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-300">
+                    <PackageCheck className="w-12 h-12" />
+                  </div>
+                )}
+                {prod.stock > 0 ? (
+                  <span className="absolute top-3 left-3 px-2.5 py-1 bg-emerald-500 text-white text-[10px] font-bold rounded-full uppercase tracking-wider shadow">
+                    In Stock
                   </span>
-                </div>
-
-                {/* Info */}
-                <div className="p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-brand-600 uppercase tracking-wider">
-                      {prod.categoryName || 'Hardware'}
-                    </span>
-                    {prod.brand && (
-                      <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                        {prod.brand}
-                      </span>
-                    )}
-                  </div>
-
-                  <Link href={`/products/${prod.slug}`} className="block">
-                    <h3 className="text-sm font-bold text-navy-950 group-hover:text-brand-600 transition line-clamp-2">
-                      {prod.name}
-                    </h3>
-                  </Link>
-
-                  <p className="text-xs text-slate-500 font-mono">SKU: {prod.sku || 'N/A'}</p>
-
-                  <div className="pt-1 flex items-baseline gap-1">
-                    <span className="text-lg font-black text-navy-950">Rs. {prod.price.toLocaleString()}</span>
-                    <span className="text-xs text-slate-500 font-medium">/ {prod.unit}</span>
-                  </div>
-                </div>
+                ) : (
+                  <span className="absolute top-3 left-3 px-2.5 py-1 bg-slate-600 text-white text-[10px] font-bold rounded-full uppercase tracking-wider shadow">
+                    Out of Stock
+                  </span>
+                )}
               </div>
 
-              {/* Actions */}
-              <div className="p-4 pt-0">
-                <button
-                  onClick={() => handleOpenQuote(prod)}
-                  className="w-full py-2.5 bg-navy-900 hover:bg-brand-600 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Request Quote</span>
-                </button>
+              {/* Product Info */}
+              <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-brand-600 uppercase tracking-wider">
+                    SKU: {prod.sku}
+                  </span>
+                  <h3 className="text-base font-bold text-navy-950 line-clamp-1 group-hover:text-brand-600 transition">
+                    <Link href={`/products/${prod.slug || prod.id}`}>
+                      {prod.name}
+                    </Link>
+                  </h3>
+                  <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                    {prod.description}
+                  </p>
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block uppercase font-bold">Price</span>
+                    <span className="text-lg font-black text-navy-950">
+                      Rs. {prod.price.toLocaleString()}
+                    </span>
+                    <span className="text-xs text-slate-500 font-normal"> / {prod.unit}</span>
+                  </div>
+
+                  <Link
+                    href={`/products/${prod.slug || prod.id}`}
+                    className="px-3.5 py-2 bg-navy-950 hover:bg-brand-600 text-white text-xs font-bold rounded-xl transition flex items-center gap-1 shadow"
+                  >
+                    <span>Details</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
-
-      {/* Quotation Request Modal */}
-      <QuotationModal
-        isOpen={quoteModalOpen}
-        onClose={() => setQuoteModalOpen(false)}
-        initialProduct={selectedProduct}
-      />
     </div>
-  );
-}
-
-export default function ProductsPage() {
-  return (
-    <React.Suspense fallback={<div className="p-12 text-center text-xs text-slate-500">Loading catalog...</div>}>
-      <ProductsCatalogContent />
-    </React.Suspense>
   );
 }

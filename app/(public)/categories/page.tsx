@@ -1,88 +1,70 @@
-'use client';
-
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { ArrowRight, Layers } from 'lucide-react';
+import Image from 'next/image';
+import { Layers, ArrowRight, PackageCheck } from 'lucide-react';
 import { getCategories } from '@/lib/firestore/services';
-import { Category } from '@/types';
 
-export default function CategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+// Incremental Static Regeneration (ISR): Cache & revalidate every 1 hour (3600s)
+export const revalidate = 3600;
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const data = await getCategories(true);
-        setCategories(data);
-      } catch (err) {
-        console.error('Error fetching categories:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
+export default async function CategoriesPage() {
+  const categories = await getCategories(true);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+      {/* Header */}
       <div className="border-b border-slate-200 pb-6">
-        <h1 className="text-3xl font-black text-navy-950">Product Categories</h1>
-        <p className="text-xs text-slate-500 mt-1">
-          Explore complete hardware product lines available at Anand Hardware in Biratnagar.
+        <h1 className="text-3xl font-black text-navy-950 tracking-tight">Product Categories</h1>
+        <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          Browse Anand Hardware’s core supply categories for construction, plumbing, electrical, and finishing projects.
         </p>
       </div>
 
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-          {[1, 2, 3, 4, 5, 6].map((n) => (
-            <div key={n} className="h-56 bg-white rounded-2xl border border-slate-200 animate-pulse" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-          {categories.map((cat) => (
-            <Link
-              key={cat.id}
-              href={`/products?category=${cat.id}`}
-              className="bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-sm hover:shadow-xl transition flex flex-col group"
-            >
-              <div className="relative h-44 bg-slate-100 overflow-hidden">
+      {/* Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        {categories.map((cat) => (
+          <Link
+            key={cat.id}
+            href={`/products?category=${cat.slug || cat.id}`}
+            className="group bg-white rounded-3xl p-6 border border-slate-200 shadow-sm hover:shadow-xl hover:border-brand-500/50 transition flex flex-col justify-between space-y-4"
+          >
+            <div className="space-y-4">
+              <div className="relative h-44 w-full bg-slate-100 rounded-2xl overflow-hidden border border-slate-200">
                 {cat.imageUrl ? (
-                  <img
+                  <Image
                     src={cat.imageUrl}
                     alt={cat.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    className="object-cover group-hover:scale-105 transition duration-300"
+                    loading="lazy"
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                    <Layers className="w-10 h-10 mb-1 text-slate-300" />
+                  <div className="w-full h-full flex items-center justify-center text-slate-300">
+                    <Layers className="w-12 h-12 text-brand-600" />
                   </div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-navy-950/80 via-transparent to-transparent" />
-                <div className="absolute bottom-3 left-4 right-4">
-                  <h2 className="text-lg font-black text-white group-hover:text-brand-300 transition">
-                    {cat.name}
-                  </h2>
-                </div>
               </div>
 
-              <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
-                <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
-                  {cat.description || 'Quality hardware and construction materials.'}
-                </p>
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs font-bold text-brand-600">
-                  <span>Browse Products</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition" />
-                </div>
+              <div>
+                <h2 className="text-lg font-bold text-navy-950 group-hover:text-brand-600 transition">
+                  {cat.name}
+                </h2>
+                {cat.description && (
+                  <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                    {cat.description}
+                  </p>
+                )}
               </div>
-            </Link>
-          ))}
-        </div>
-      )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-brand-600 group-hover:text-brand-700">
+              <span>View Category Supplies</span>
+              <ArrowRight className="w-4 h-4 transition group-hover:translate-x-1" />
+            </div>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

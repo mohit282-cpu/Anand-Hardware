@@ -7,15 +7,15 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Products: public can read active products, admin/staff can manage all
+    // Products: public can read all products, admin/staff can write
     match /products/{productId} {
-      allow read: if resource.data.active == true || isAuthenticated();
+      allow read: if true;
       allow write: if isAuthenticated();
     }
 
-    // Categories: public can read active categories, admin/staff can manage all
+    // Categories: public can read all categories, admin/staff can write
     match /categories/{categoryId} {
-      allow read: if resource.data.active == true || isAuthenticated();
+      allow read: if true;
       allow write: if isAuthenticated();
     }
 

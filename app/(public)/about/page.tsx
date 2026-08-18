@@ -1,8 +1,8 @@
-'use client';
-
 import React from 'react';
 import Link from 'next/link';
-import { ShieldCheck, MapPin, Wrench, Building2, Truck, FileText } from 'lucide-react';
+import { ShieldCheck, MapPin, Wrench, Building2, Truck } from 'lucide-react';
+
+export const revalidate = 3600;
 
 export default function AboutPage() {
   return (
