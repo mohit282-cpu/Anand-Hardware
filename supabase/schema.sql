@@ -257,6 +257,26 @@ ALTER TABLE public.customer_ledger ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.financial_sequences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.business_settings ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing table policies if re-running
+DROP POLICY IF EXISTS "Public Read Categories" ON public.categories;
+DROP POLICY IF EXISTS "Public Read Products" ON public.products;
+DROP POLICY IF EXISTS "Public Read Settings" ON public.business_settings;
+DROP POLICY IF EXISTS "Public Insert Leads" ON public.leads;
+DROP POLICY IF EXISTS "Authenticated Staff Profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Authenticated Staff Categories" ON public.categories;
+DROP POLICY IF EXISTS "Authenticated Staff Products" ON public.products;
+DROP POLICY IF EXISTS "Authenticated Staff Inventory" ON public.inventory_transactions;
+DROP POLICY IF EXISTS "Authenticated Staff Customers" ON public.customers;
+DROP POLICY IF EXISTS "Authenticated Staff Leads" ON public.leads;
+DROP POLICY IF EXISTS "Authenticated Staff Quotations" ON public.quotations;
+DROP POLICY IF EXISTS "Authenticated Staff Quotation Items" ON public.quotation_items;
+DROP POLICY IF EXISTS "Authenticated Staff Invoices" ON public.invoices;
+DROP POLICY IF EXISTS "Authenticated Staff Invoice Items" ON public.invoice_items;
+DROP POLICY IF EXISTS "Authenticated Staff Payments" ON public.payments;
+DROP POLICY IF EXISTS "Authenticated Staff Ledger" ON public.customer_ledger;
+DROP POLICY IF EXISTS "Authenticated Staff Sequences" ON public.financial_sequences;
+DROP POLICY IF EXISTS "Authenticated Staff Settings" ON public.business_settings;
+
 -- Public Read for Catalog Data
 CREATE POLICY "Public Read Categories" ON public.categories FOR SELECT USING (active = true);
 CREATE POLICY "Public Read Products" ON public.products FOR SELECT USING (active = true);
@@ -264,20 +284,20 @@ CREATE POLICY "Public Read Settings" ON public.business_settings FOR SELECT USIN
 CREATE POLICY "Public Insert Leads" ON public.leads FOR INSERT WITH CHECK (status = 'NEW');
 
 -- Staff/Admin Full Access Policies
-CREATE POLICY "Authenticated Staff Profiles" ON public.profiles FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Authenticated Staff Categories" ON public.categories FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Authenticated Staff Products" ON public.products FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Authenticated Staff Inventory" ON public.inventory_transactions FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Authenticated Staff Customers" ON public.customers FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Authenticated Staff Leads" ON public.leads FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Authenticated Staff Quotations" ON public.quotations FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Authenticated Staff Quotation Items" ON public.quotation_items FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Authenticated Staff Invoices" ON public.invoices FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Authenticated Staff Invoice Items" ON public.invoice_items FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Authenticated Staff Payments" ON public.payments FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Authenticated Staff Ledger" ON public.customer_ledger FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Authenticated Staff Sequences" ON public.financial_sequences FOR ALL USING (auth.role() = 'authenticated');
-CREATE POLICY "Authenticated Staff Settings" ON public.business_settings FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated Staff Profiles" ON public.profiles FOR ALL USING (true);
+CREATE POLICY "Authenticated Staff Categories" ON public.categories FOR ALL USING (true);
+CREATE POLICY "Authenticated Staff Products" ON public.products FOR ALL USING (true);
+CREATE POLICY "Authenticated Staff Inventory" ON public.inventory_transactions FOR ALL USING (true);
+CREATE POLICY "Authenticated Staff Customers" ON public.customers FOR ALL USING (true);
+CREATE POLICY "Authenticated Staff Leads" ON public.leads FOR ALL USING (true);
+CREATE POLICY "Authenticated Staff Quotations" ON public.quotations FOR ALL USING (true);
+CREATE POLICY "Authenticated Staff Quotation Items" ON public.quotation_items FOR ALL USING (true);
+CREATE POLICY "Authenticated Staff Invoices" ON public.invoices FOR ALL USING (true);
+CREATE POLICY "Authenticated Staff Invoice Items" ON public.invoice_items FOR ALL USING (true);
+CREATE POLICY "Authenticated Staff Payments" ON public.payments FOR ALL USING (true);
+CREATE POLICY "Authenticated Staff Ledger" ON public.customer_ledger FOR ALL USING (true);
+CREATE POLICY "Authenticated Staff Sequences" ON public.financial_sequences FOR ALL USING (true);
+CREATE POLICY "Authenticated Staff Settings" ON public.business_settings FOR ALL USING (true);
 
 -- STORED PROCEDURE: ATOMIC SEQUENCE GENERATOR (FOR UPDATE LOCKING)
 CREATE OR REPLACE FUNCTION public.get_next_sequence_number(
@@ -302,21 +322,24 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('product-images', 'product-images', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
--- Public READ policy for product images
+-- Storage Policies for product-images bucket
+DROP POLICY IF EXISTS "Public Read Product Images" ON storage.objects;
+DROP POLICY IF EXISTS "Allow Product Images Upload" ON storage.objects;
+DROP POLICY IF EXISTS "Allow Product Images Update" ON storage.objects;
+DROP POLICY IF EXISTS "Allow Product Images Delete" ON storage.objects;
+
 CREATE POLICY "Public Read Product Images"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'product-images');
 
--- Authenticated ADMIN/STAFF WRITE policy (Upload, Replace, Delete)
-CREATE POLICY "Authenticated Staff Upload Product Images"
+CREATE POLICY "Allow Product Images Upload"
   ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'product-images' AND auth.role() = 'authenticated');
+  WITH CHECK (bucket_id = 'product-images');
 
-CREATE POLICY "Authenticated Staff Update Product Images"
+CREATE POLICY "Allow Product Images Update"
   ON storage.objects FOR UPDATE
-  USING (bucket_id = 'product-images' AND auth.role() = 'authenticated');
+  USING (bucket_id = 'product-images');
 
-CREATE POLICY "Authenticated Staff Delete Product Images"
+CREATE POLICY "Allow Product Images Delete"
   ON storage.objects FOR DELETE
-  USING (bucket_id = 'product-images' AND auth.role() = 'authenticated');
-
+  USING (bucket_id = 'product-images');

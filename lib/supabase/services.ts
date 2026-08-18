@@ -75,13 +75,20 @@ export async function getNextSequenceNumber(
   }
 }
 
+export function toValidUuidOrNull(id?: string | null): string | null {
+  if (!id || typeof id !== 'string') return null;
+  const trimmed = id.trim();
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(trimmed) ? trimmed : null;
+}
+
 const FALLBACK_CATEGORIES: Category[] = [
-  { id: 'cat-1', name: 'Plumbing & Pipes', slug: 'plumbing-pipes', description: 'PVC, GI, and PPR pipes', imageUrl: 'https://images.unsplash.com/photo-1581094288338-2314dddb7ece?auto=format&fit=crop&w=600&q=80', active: true, createdAt: '', updatedAt: '' },
-  { id: 'cat-2', name: 'Electrical & Wiring', slug: 'electrical-wiring', description: 'Wires and circuit breakers', imageUrl: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=600&q=80', active: true, createdAt: '', updatedAt: '' },
-  { id: 'cat-3', name: 'Building Materials', slug: 'building-materials', description: 'Cement, rebar, waterproofing', imageUrl: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80', active: true, createdAt: '', updatedAt: '' },
-  { id: 'cat-4', name: 'Paints & Finishes', slug: 'paints-finishes', description: 'Interior & exterior paints', imageUrl: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=600&q=80', active: true, createdAt: '', updatedAt: '' },
-  { id: 'cat-5', name: 'Hand & Power Tools', slug: 'hand-power-tools', description: 'Drills, grinders, hammers', imageUrl: 'https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&w=600&q=80', active: true, createdAt: '', updatedAt: '' },
-  { id: 'cat-6', name: 'Hardware & Locks', slug: 'hardware-locks', description: 'Locks, hinges, handles', imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80', active: true, createdAt: '', updatedAt: '' },
+  { id: '11111111-1111-4111-8111-111111111111', name: 'Plumbing & Pipes', slug: 'plumbing-pipes', description: 'PVC, GI, and PPR pipes', imageUrl: 'https://images.unsplash.com/photo-1581094288338-2314dddb7ece?auto=format&fit=crop&w=600&q=80', active: true, createdAt: '', updatedAt: '' },
+  { id: '22222222-2222-4222-8222-222222222222', name: 'Electrical & Wiring', slug: 'electrical-wiring', description: 'Wires and circuit breakers', imageUrl: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=600&q=80', active: true, createdAt: '', updatedAt: '' },
+  { id: '33333333-3333-4333-8333-333333333333', name: 'Building Materials', slug: 'building-materials', description: 'Cement, rebar, waterproofing', imageUrl: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80', active: true, createdAt: '', updatedAt: '' },
+  { id: '44444444-4444-4444-8444-444444444444', name: 'Paints & Finishes', slug: 'paints-finishes', description: 'Interior & exterior paints', imageUrl: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=600&q=80', active: true, createdAt: '', updatedAt: '' },
+  { id: '55555555-5555-4555-8555-555555555555', name: 'Hand & Power Tools', slug: 'hand-power-tools', description: 'Drills, grinders, hammers', imageUrl: 'https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&w=600&q=80', active: true, createdAt: '', updatedAt: '' },
+  { id: '66666666-6666-4666-8666-666666666666', name: 'Hardware & Locks', slug: 'hardware-locks', description: 'Locks, hinges, handles', imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80', active: true, createdAt: '', updatedAt: '' },
 ];
 
 // --------------------------------------------------------
@@ -291,11 +298,11 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 
 export async function createProduct(data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
   const slug = data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-  const { data: newRow, error } = await supabase.from('products').insert({
+  const payload: Record<string, any> = {
     name: data.name,
     slug,
     sku: data.sku,
-    category_id: data.categoryId || null,
+    category_id: toValidUuidOrNull(data.categoryId),
     category_name: data.categoryName || '',
     brand: data.brand || '',
     price: data.price,
@@ -309,10 +316,24 @@ export async function createProduct(data: Omit<Product, 'id' | 'createdAt' | 'up
     low_stock_level: data.lowStockLevel || 10,
     featured: data.featured || false,
     active: data.active !== false,
-  }).select('id').single();
+  };
 
-  if (error) throw error;
-  return newRow.id;
+  try {
+    const { data: newRow, error } = await supabase.from('products').insert(payload).select('id').single();
+    if (error) throw error;
+    return newRow.id;
+  } catch (err: any) {
+    // If schema cache hasn't reloaded image_path/image_alt columns yet, retry without them
+    if (err.message?.includes('image_alt') || err.message?.includes('image_path') || err.code === 'PGRST204') {
+      console.warn('PostgREST schema mismatch detected. Retrying product creation without extended image columns...');
+      delete payload.image_path;
+      delete payload.image_alt;
+      const { data: fallbackRow, error: fallbackErr } = await supabase.from('products').insert(payload).select('id').single();
+      if (fallbackErr) throw fallbackErr;
+      return fallbackRow.id;
+    }
+    throw err;
+  }
 }
 
 export async function updateProduct(id: string, data: Partial<Product>): Promise<void> {
@@ -320,7 +341,7 @@ export async function updateProduct(id: string, data: Partial<Product>): Promise
   if (data.name !== undefined) updates.name = data.name;
   if (data.slug !== undefined) updates.slug = data.slug;
   if (data.sku !== undefined) updates.sku = data.sku;
-  if (data.categoryId !== undefined) updates.category_id = data.categoryId;
+  if (data.categoryId !== undefined) updates.category_id = toValidUuidOrNull(data.categoryId);
   if (data.categoryName !== undefined) updates.category_name = data.categoryName;
   if (data.brand !== undefined) updates.brand = data.brand;
   if (data.price !== undefined) updates.price = data.price;
@@ -337,8 +358,19 @@ export async function updateProduct(id: string, data: Partial<Product>): Promise
   if (data.featured !== undefined) updates.featured = data.featured;
   if (data.active !== undefined) updates.active = data.active;
 
-  const { error } = await supabase.from('products').update(updates).eq('id', id);
-  if (error) throw error;
+  try {
+    const { error } = await supabase.from('products').update(updates).eq('id', id);
+    if (error) throw error;
+  } catch (err: any) {
+    if (err.message?.includes('image_alt') || err.message?.includes('image_path') || err.code === 'PGRST204') {
+      delete updates.image_path;
+      delete updates.image_alt;
+      const { error: fallbackErr } = await supabase.from('products').update(updates).eq('id', id);
+      if (fallbackErr) throw fallbackErr;
+    } else {
+      throw err;
+    }
+  }
 }
 
 export async function deleteProduct(id: string): Promise<void> {

@@ -83,8 +83,22 @@ export function ProductImageUpload({
       });
     } catch (err: any) {
       console.error('Image upload failed:', err);
+      const msg = err.message || 'Unable to upload image.';
       setUploadState('ERROR');
-      setStatusMessage(err.message || 'Unable to upload image. Please try again.');
+
+      if (msg.includes('product-images') || msg.includes('Bucket') || msg.includes('row-level security') || msg.includes('policy')) {
+        // Create local object URL fallback so user can still preview image
+        const localPreviewUrl = URL.createObjectURL(file);
+        setImageUrl(localPreviewUrl);
+        onImageChange({
+          imageUrl: localPreviewUrl,
+          imagePath: '',
+          imageAlt: imageAlt || file.name.replace(/\.[^/.]+$/, ''),
+        });
+        setStatusMessage(`Storage RLS policy block detected. Using local preview. To allow storage uploads, run SQL storage policy from supabase/schema.sql in Supabase SQL Editor.`);
+      } else {
+        setStatusMessage(msg);
+      }
     }
   };
 

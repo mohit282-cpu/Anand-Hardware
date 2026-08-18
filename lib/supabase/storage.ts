@@ -115,6 +115,29 @@ export async function compressProductImage(file: File, maxDimension = 1200, qual
 }
 
 /**
+ * Ensure storage bucket 'product-images' exists in Supabase.
+ * Attempts automatic creation if missing.
+ */
+export async function ensureBucketExists(): Promise<boolean> {
+  try {
+    const { data: bucket, error: getErr } = await supabase.storage.getBucket(BUCKET_NAME);
+    if (!bucket || getErr) {
+      const { error: createErr } = await supabase.storage.createBucket(BUCKET_NAME, {
+        public: true,
+      });
+      if (createErr) {
+        console.warn('Bucket auto-creation failed:', createErr.message);
+        return false;
+      }
+    }
+    return true;
+  } catch (err) {
+    console.warn('Bucket check error:', err);
+    return false;
+  }
+}
+
+/**
  * Upload product image to Supabase Storage with unique path.
  * Unique path format: products/{productId || 'temp'}/{timestamp}-{random}.webp
  */
@@ -133,16 +156,39 @@ export async function uploadProductImage(file: File, productId?: string): Promis
   const randomStr = Math.random().toString(36).substring(2, 8);
   const filePath = `products/${folder}/${timestamp}-${randomStr}.webp`;
 
-  // Upload to Supabase Storage
-  const { data, error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, compressedBlob, {
+  // Attempt 1: Direct Upload
+  let { data, error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, compressedBlob, {
     contentType: 'image/webp',
     cacheControl: '3600',
-    upsert: false,
+    upsert: true,
   });
 
-  if (error) {
+  // If Bucket Not Found, attempt automatic creation and retry
+  if (error && (error.message?.toLowerCase().includes('bucket not found') || (error as any).statusCode === 404)) {
+    console.warn('Bucket product-images not found. Attempting automatic creation...');
+    await ensureBucketExists();
+
+    const retry = await supabase.storage.from(BUCKET_NAME).upload(filePath, compressedBlob, {
+      contentType: 'image/webp',
+      cacheControl: '3600',
+      upsert: true,
+    });
+
+    data = retry.data;
+    error = retry.error;
+  }
+
+  if (error || !data) {
     console.error('Supabase storage upload error:', error);
-    throw new Error(`Failed to upload image: ${error.message}`);
+    const errMsg = error?.message || 'Bucket product-images not found.';
+
+    // If bucket creation requires Supabase Dashboard setup:
+    if (errMsg.toLowerCase().includes('bucket not found')) {
+      throw new Error(
+        `Bucket 'product-images' does not exist in Supabase Storage. Please execute supabase/schema.sql or create a public bucket named 'product-images' in your Supabase Dashboard under Storage -> New Bucket.`
+      );
+    }
+    throw new Error(`Failed to upload image: ${errMsg}`);
   }
 
   // Get Public Access URL
