@@ -82,15 +82,6 @@ export function toValidUuidOrNull(id?: string | null): string | null {
   return uuidRegex.test(trimmed) ? trimmed : null;
 }
 
-const FALLBACK_CATEGORIES: Category[] = [
-  { id: '11111111-1111-4111-8111-111111111111', name: 'Plumbing & Pipes', slug: 'plumbing-pipes', description: 'PVC, GI, and PPR pipes', imageUrl: 'https://images.unsplash.com/photo-1581094288338-2314dddb7ece?auto=format&fit=crop&w=600&q=80', active: true, createdAt: '', updatedAt: '' },
-  { id: '22222222-2222-4222-8222-222222222222', name: 'Electrical & Wiring', slug: 'electrical-wiring', description: 'Wires and circuit breakers', imageUrl: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=600&q=80', active: true, createdAt: '', updatedAt: '' },
-  { id: '33333333-3333-4333-8333-333333333333', name: 'Building Materials', slug: 'building-materials', description: 'Cement, rebar, waterproofing', imageUrl: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80', active: true, createdAt: '', updatedAt: '' },
-  { id: '44444444-4444-4444-8444-444444444444', name: 'Paints & Finishes', slug: 'paints-finishes', description: 'Interior & exterior paints', imageUrl: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=600&q=80', active: true, createdAt: '', updatedAt: '' },
-  { id: '55555555-5555-4555-8555-555555555555', name: 'Hand & Power Tools', slug: 'hand-power-tools', description: 'Drills, grinders, hammers', imageUrl: 'https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&w=600&q=80', active: true, createdAt: '', updatedAt: '' },
-  { id: '66666666-6666-4666-8666-666666666666', name: 'Hardware & Locks', slug: 'hardware-locks', description: 'Locks, hinges, handles', imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80', active: true, createdAt: '', updatedAt: '' },
-];
-
 // --------------------------------------------------------
 // CATEGORIES SERVICE
 // --------------------------------------------------------
@@ -101,10 +92,11 @@ export async function getCategories(onlyActive = false): Promise<Category[]> {
       query = query.eq('active', true);
     }
     const { data, error } = await query;
-    if (error || !data || data.length === 0) {
-      return FALLBACK_CATEGORIES.filter(c => !onlyActive || c.active);
+    if (error) {
+      console.error('Error fetching categories from Supabase:', error);
+      return [];
     }
-    return data.map(c => ({
+    return (data || []).map(c => ({
       id: c.id,
       name: c.name,
       slug: c.slug,
@@ -115,7 +107,8 @@ export async function getCategories(onlyActive = false): Promise<Category[]> {
       updatedAt: c.updated_at,
     }));
   } catch (err) {
-    return FALLBACK_CATEGORIES.filter(c => !onlyActive || c.active);
+    console.error('Failed to get categories:', err);
+    return [];
   }
 }
 
