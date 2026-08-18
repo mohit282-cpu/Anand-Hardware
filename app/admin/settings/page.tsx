@@ -50,7 +50,7 @@ export default function AdminSettingsPage() {
       setToastMsg('Business settings updated successfully!');
     } catch (err: any) {
       console.error('Failed to update settings:', err);
-      setErrorMsg(err.message || 'Failed to update business settings.');
+      setErrorMsg(err.message || 'Failed to update settings.');
     } finally {
       setSaving(false);
     }
@@ -62,30 +62,36 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-black text-navy-950">Business Settings</h1>
-        <p className="text-xs text-slate-500 mt-1">
-          Central configuration for Anand Hardware header, contact information, PAN/VAT registration, and quotation numbering.
-        </p>
+      {/* Top Header */}
+      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+        <div>
+          <h1 className="text-2xl font-black text-navy-950">Business Settings</h1>
+          <p className="text-xs text-slate-500">Manage Anand Hardware details, PAN/VAT ID, contact info, and FY document prefixes.</p>
+        </div>
+        <button
+          onClick={() => getBusinessSettings().then(reset)}
+          className="p-2 text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl"
+        >
+          <RefreshCw className="w-4 h-4" />
+        </button>
       </div>
 
       {toastMsg && (
-        <div className="p-4 bg-emerald-900 text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-lg">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-bold flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           <span>{toastMsg}</span>
         </div>
       )}
 
       {errorMsg && (
-        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-rose-500" />
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs font-bold flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-rose-600" />
           <span>{errorMsg}</span>
         </div>
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
-        {/* Core Identity */}
+        {/* Core Company Profile */}
         <div className="space-y-4">
           <h2 className="text-sm font-bold text-navy-950 uppercase tracking-wider border-b border-slate-100 pb-2">
             Company Identity
@@ -99,61 +105,51 @@ export default function AdminSettingsPage() {
               <input
                 type="text"
                 {...register('businessName')}
-                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
+                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none font-bold"
               />
               {errors.businessName && <p className="mt-1 text-xs text-rose-500">{errors.businessName.message}</p>}
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                PAN / VAT Registration Number
+                PAN / VAT Tax ID
               </label>
               <input
                 type="text"
                 {...register('taxId')}
                 className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
-                placeholder="PAN: 302948576 / VAT Registered"
+                placeholder="PAN: 302948576"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Logo Image Web URL</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Logo Image URL</label>
             <input
-              type="url"
+              type="text"
               {...register('logoUrl')}
               className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
-              placeholder="https://..."
+              placeholder="https://anandhardware.com/logo.png"
             />
-          </div>
-
-          {watchLogoUrl && watchLogoUrl.trim() !== '' && (
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-3">
-              <div className="w-12 h-12 bg-white rounded border border-slate-200 overflow-hidden flex items-center justify-center">
-                <img
-                  src={watchLogoUrl}
-                  alt="Logo"
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
+            {watchLogoUrl && (
+              <div className="mt-2 flex items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-200 w-fit">
+                <img src={watchLogoUrl} alt="Logo Preview" className="h-8 object-contain" onError={(e) => (e.target as HTMLElement).style.display = 'none'} />
+                <span className="text-[10px] text-slate-500">Logo Preview</span>
               </div>
-              <span className="text-xs text-slate-500 font-mono">{watchLogoUrl}</span>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* Contact & Location */}
+        {/* Contact & Location Details */}
         <div className="space-y-4 pt-4 border-t border-slate-100">
           <h2 className="text-sm font-bold text-navy-950 uppercase tracking-wider border-b border-slate-100 pb-2">
-            Contact & Location Details
+            Contact & Store Info
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Primary Store Phone <span className="text-rose-500">*</span>
+                Store Phone Number <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
@@ -165,7 +161,7 @@ export default function AdminSettingsPage() {
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Email Address <span className="text-rose-500">*</span>
+                Business Email <span className="text-rose-500">*</span>
               </label>
               <input
                 type="email"
@@ -176,7 +172,7 @@ export default function AdminSettingsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">WhatsApp Contact</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">WhatsApp Number</label>
               <input
                 type="text"
                 {...register('whatsapp')}
@@ -207,13 +203,13 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
-        {/* Quotation & System Settings */}
+        {/* Document Numbering Prefixes */}
         <div className="space-y-4 pt-4 border-t border-slate-100">
           <h2 className="text-sm font-bold text-navy-950 uppercase tracking-wider border-b border-slate-100 pb-2">
-            Quotation Prefix & Socials
+            Document Numbering Prefixes (Nepal FY)
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Quotation Number Prefix <span className="text-rose-500">*</span>
@@ -222,18 +218,35 @@ export default function AdminSettingsPage() {
                 type="text"
                 {...register('quotationPrefix')}
                 className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
-                placeholder="AH-QT-"
+                placeholder="QT-"
               />
               {errors.quotationPrefix && <p className="mt-1 text-xs text-rose-500">{errors.quotationPrefix.message}</p>}
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Website URL</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Invoice Number Prefix <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="text"
-                {...register('website')}
-                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
+                {...register('invoicePrefix')}
+                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
+                placeholder="INV-"
               />
+              {errors.invoicePrefix && <p className="mt-1 text-xs text-rose-500">{errors.invoicePrefix.message}</p>}
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Payment Receipt Prefix <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                {...register('receiptPrefix')}
+                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
+                placeholder="REC-"
+              />
+              {errors.receiptPrefix && <p className="mt-1 text-xs text-rose-500">{errors.receiptPrefix.message}</p>}
             </div>
           </div>
         </div>

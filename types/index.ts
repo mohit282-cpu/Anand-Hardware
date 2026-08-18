@@ -1,8 +1,18 @@
 export type InventoryTransactionType = 'STOCK_IN' | 'STOCK_OUT' | 'ADJUSTMENT' | 'DAMAGE' | 'RETURN';
 
+export type InventoryTransactionReferenceType = 'BILL' | 'MANUAL' | 'PURCHASE' | 'RETURN' | 'ADJUSTMENT' | 'CANCELLED_BILL';
+
 export type LeadStatus = 'NEW' | 'CONTACTED' | 'QUOTATION' | 'WON' | 'LOST';
 
 export type QuotationStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
+
+export type InvoiceStatus = 'DRAFT' | 'CONFIRMED' | 'PARTIALLY_PAID' | 'PAID' | 'CREDIT' | 'CANCELLED';
+
+export type PaymentType = 'FULL_PAYMENT' | 'PARTIAL_PAYMENT' | 'CREDIT';
+
+export type PaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'CARD' | 'CHEQUE' | 'OTHER';
+
+export type CustomerLedgerType = 'SALE_CREDIT' | 'PAYMENT' | 'RETURN' | 'ADJUSTMENT' | 'CANCELLED_SALE';
 
 export type UserRole = 'admin' | 'staff';
 
@@ -45,6 +55,8 @@ export interface InventoryTransaction {
   type: InventoryTransactionType;
   quantity: number;
   reason: string;
+  referenceType?: InventoryTransactionReferenceType;
+  referenceId?: string;
   note?: string;
   createdAt: string;
   createdBy: string;
@@ -58,6 +70,10 @@ export interface Customer {
   company?: string;
   address?: string;
   notes?: string;
+  totalPurchases?: number;
+  totalPaid?: number;
+  currentOutstanding?: number;
+  creditLimit?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -94,6 +110,7 @@ export interface Quotation {
   quotationNumber: string;
   customerId?: string;
   customer: {
+    id?: string;
     name: string;
     phone: string;
     email?: string;
@@ -107,8 +124,72 @@ export interface Quotation {
   total: number;
   status: QuotationStatus;
   notes?: string;
+  invoiceId?: string;
   createdAt: string;
   updatedAt: string;
+  createdBy: string;
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  financialYear: string;
+  quotationId?: string;
+  customerId?: string;
+  customer: {
+    id?: string;
+    name: string;
+    phone: string;
+    email?: string;
+    company?: string;
+    address?: string;
+  };
+  items: QuotationItem[];
+  subtotal: number;
+  discount: number;
+  tax: number;
+  total: number;
+  paidAmount: number;
+  creditAmount: number;
+  paymentType: PaymentType;
+  status: InvoiceStatus;
+  notes?: string;
+  cancelledBy?: string;
+  cancelledAt?: string;
+  cancellationReason?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+}
+
+export interface Payment {
+  id: string;
+  receiptNumber: string;
+  financialYear: string;
+  invoiceId?: string;
+  invoiceNumber?: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  amount: number;
+  paymentMethod: PaymentMethod;
+  previousOutstanding: number;
+  remainingOutstanding: number;
+  note?: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface CustomerLedgerEntry {
+  id: string;
+  customerId: string;
+  type: CustomerLedgerType;
+  amount: number;
+  balance: number;
+  referenceType: 'INVOICE' | 'PAYMENT' | 'MANUAL';
+  referenceId: string;
+  description: string;
+  createdAt: string;
   createdBy: string;
 }
 
@@ -125,6 +206,8 @@ export interface BusinessSettings {
   instagram: string;
   taxId: string; // PAN / VAT
   quotationPrefix: string;
+  invoicePrefix: string;
+  receiptPrefix: string;
   updatedAt?: string;
 }
 

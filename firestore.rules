@@ -28,7 +28,23 @@ service cloud.firestore {
       allow read, update, delete: if isAuthenticated();
     }
 
-    // Protected collections: customers, inventory, quotations, users
+    // Protected financial & management collections: invoices, payments, customerLedger, sequences
+    match /invoices/{invoiceId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /payments/{paymentId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /customerLedger/{ledgerId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /sequences/{seqId} {
+      allow read, write: if isAuthenticated();
+    }
+
     match /inventoryTransactions/{txnId} {
       allow read, write: if isAuthenticated();
     }

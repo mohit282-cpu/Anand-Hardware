@@ -22,32 +22,37 @@ import {
   getLeads,
   getQuotations,
   getInventoryTransactions,
+  getInvoices,
   updateLeadStatus
 } from '@/lib/firestore/services';
-import { Product, Customer, Lead, Quotation, InventoryTransaction, LeadStatus } from '@/types';
+import { Product, Customer, Lead, Quotation, InventoryTransaction, Invoice, LeadStatus } from '@/types';
+import { Receipt, Wallet, CreditCard, BarChart3 } from 'lucide-react';
 
 export default function AdminDashboardPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [transactions, setTransactions] = useState<InventoryTransaction[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const [prodData, custData, leadData, quotData, txnData] = await Promise.all([
+      const [prodData, custData, leadData, quotData, invData, txnData] = await Promise.all([
         getProducts(),
         getCustomers(),
         getLeads(),
         getQuotations(),
+        getInvoices(),
         getInventoryTransactions(),
       ]);
       setProducts(prodData);
       setCustomers(custData);
       setLeads(leadData);
       setQuotations(quotData);
+      setInvoices(invData);
       setTransactions(txnData);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);

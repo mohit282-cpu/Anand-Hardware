@@ -24,7 +24,7 @@ export default function HomePage() {
         await seedDemoDataIfEmpty();
         const [catData, prodData] = await Promise.all([
           getCategories(true),
-          getProducts({ onlyActive: true, featuredOnly: true, limitCount: 8 }),
+          getProducts({ onlyActive: true, featured: true, limitCount: 8 }),
         ]);
         setCategories(catData);
         setFeaturedProducts(prodData);

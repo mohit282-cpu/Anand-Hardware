@@ -3,8 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Printer, Wrench, CheckCircle2, AlertCircle, FileSpreadsheet, Phone, MapPin, Mail } from 'lucide-react';
-import { getQuotationById, updateQuotationStatus, getBusinessSettings } from '@/lib/firestore/services';
+import { ArrowLeft, Printer, Wrench, CheckCircle2, AlertCircle, FileSpreadsheet, Phone, MapPin, Mail, Receipt } from 'lucide-react';
+import { getQuotationById, updateQuotationStatus, getBusinessSettings, convertQuotationToInvoice } from '@/lib/firestore/services';
 import { Quotation, QuotationStatus, BusinessSettings } from '@/types';
 
 export default function ViewQuotationPage() {
@@ -15,6 +15,7 @@ export default function ViewQuotationPage() {
   const [quotation, setQuotation] = useState<Quotation | null>(null);
   const [settings, setSettings] = useState<BusinessSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [converting, setConverting] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -46,6 +47,27 @@ export default function ViewQuotationPage() {
     }
   };
 
+  const handleConvertToBill = async () => {
+    if (!quotation) return;
+    if (quotation.invoiceId) {
+      alert('This quotation has already been converted into a bill.');
+      router.push(`/admin/bills/${quotation.invoiceId}`);
+      return;
+    }
+
+    setConverting(true);
+    try {
+      const invId = await convertQuotationToInvoice(quotation.id);
+      alert('Quotation converted into Draft Bill!');
+      router.push(`/admin/bills/${invId}`);
+    } catch (err: any) {
+      console.error('Failed to convert quotation:', err);
+      alert(err.message || 'Failed to convert quotation.');
+    } finally {
+      setConverting(false);
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -58,8 +80,8 @@ export default function ViewQuotationPage() {
     return (
       <div className="max-w-xl mx-auto p-12 text-center space-y-4">
         <AlertCircle className="w-12 h-12 text-slate-400 mx-auto" />
-        <h2 className="text-xl font-bold text-navy-950">Quotation Not Found</h2>
-        <Link href="/admin/quotations" className="inline-block px-4 py-2 bg-brand-600 text-white font-bold text-xs rounded-xl shadow">
+        <h2 className="text-lg font-bold text-navy-950">Quotation Not Found</h2>
+        <Link href="/admin/quotations" className="px-4 py-2 bg-brand-600 text-white font-bold text-xs rounded-xl shadow">
           Back to Quotations
         </Link>
       </div>
@@ -86,7 +108,7 @@ export default function ViewQuotationPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <select
             value={quotation.status}
             onChange={(e) => handleStatusChange(e.target.value as QuotationStatus)}
@@ -100,11 +122,20 @@ export default function ViewQuotationPage() {
           </select>
 
           <button
+            onClick={handleConvertToBill}
+            disabled={converting}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <Receipt className="w-4 h-4" />
+            <span>{converting ? 'Converting...' : quotation.invoiceId ? 'View Linked Bill' : 'Convert to Bill'}</span>
+          </button>
+
+          <button
             onClick={handlePrint}
-            className="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-2"
+            className="px-4 py-2 bg-navy-950 hover:bg-brand-600 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-2"
           >
             <Printer className="w-4 h-4" />
-            <span>Print / Save PDF</span>
+            <span>Print Quotation</span>
           </button>
         </div>
       </div>
