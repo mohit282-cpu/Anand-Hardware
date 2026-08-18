@@ -44,11 +44,6 @@ export default function AdminLoginPage() {
     }
   };
 
-  const fillDemoAdmin = () => {
-    setEmail('admin@anandhardware.com');
-    setPassword('AnandAdmin2026!');
-  };
-
   return (
     <div className="min-h-screen bg-navy-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-2xl space-y-6 border border-slate-100">
@@ -108,18 +103,6 @@ export default function AdminLoginPage() {
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
-
-        {/* Demo Helper */}
-        <div className="pt-4 border-t border-slate-100 text-center space-y-2">
-          <p className="text-[11px] text-slate-400">Need quick demo login credentials?</p>
-          <button
-            type="button"
-            onClick={fillDemoAdmin}
-            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-navy-950 text-xs font-semibold rounded-lg transition"
-          >
-            Auto-Fill Demo Admin Credentials
-          </button>
-        </div>
       </div>
     </div>
   );

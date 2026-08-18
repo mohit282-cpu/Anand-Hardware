@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Printer, Wrench, CheckCircle2, AlertCircle, FileSpreadsheet, Phone, MapPin, Mail, Receipt } from 'lucide-react';
-import { getQuotationById, updateQuotationStatus, getBusinessSettings, convertQuotationToInvoice } from '@/lib/firestore/services';
+import { getQuotationById, updateQuotationStatus, getBusinessSettings, convertQuotationToInvoice } from '@/lib/supabase/services';
 import { Quotation, QuotationStatus, BusinessSettings } from '@/types';
 
 export default function ViewQuotationPage() {

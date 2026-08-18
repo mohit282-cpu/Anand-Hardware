@@ -81,5 +81,18 @@ export function getAvailableFinancialYears(): string[] {
     years.push(`${start}/${endShort}`);
   }
 
+
   return years;
+}
+
+/**
+ * Formats a monetary amount into Nepalese Rupees (NPR) with standard comma grouping.
+ * Example: formatNPR(125000) => "Rs. 1,25,000.00"
+ */
+export function formatNPR(amount: number): string {
+  const num = Number(amount) || 0;
+  return `Rs. ${num.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }

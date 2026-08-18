@@ -24,7 +24,7 @@ import {
   getInventoryTransactions,
   getInvoices,
   updateLeadStatus
-} from '@/lib/firestore/services';
+} from '@/lib/supabase/services';
 import { Product, Customer, Lead, Quotation, InventoryTransaction, Invoice, LeadStatus } from '@/types';
 import { Receipt, Wallet, CreditCard, BarChart3 } from 'lucide-react';
 

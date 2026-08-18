@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { ChevronRight, Layers, FileText, Phone, MessageSquare, ShieldCheck, CheckCircle2, AlertCircle, PackageCheck } from 'lucide-react';
-import { getProductBySlug, getProducts } from '@/lib/firestore/services';
+import { getProductBySlug, getProducts } from '@/lib/supabase/services';
 import { Product } from '@/types';
 
 // Incremental Static Regeneration (ISR): Cache & revalidate every 1 hour (3600s)

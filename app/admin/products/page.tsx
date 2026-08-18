@@ -18,7 +18,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { productSchema, ProductFormValues } from '@/lib/validation/schemas';
-import { getProducts, getCategories, createProduct, updateProduct, deleteProduct } from '@/lib/firestore/services';
+import { getProducts, getCategories, createProduct, updateProduct, deleteProduct } from '@/lib/supabase/services';
 import { Product, Category } from '@/types';
 import { ProductImageUpload } from '@/components/admin/ProductImageUpload';
 

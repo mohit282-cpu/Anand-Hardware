@@ -69,9 +69,9 @@ export async function getNextSequenceNumber(
     }
 
     return data;
-  } catch (err) {
-    console.error('Failed to generate sequence number:', err);
-    return Math.floor(Math.random() * 900) + 100;
+  } catch (err: any) {
+    console.error('Failed to generate document sequence number:', err);
+    throw new Error(`Financial document sequence generation failed: ${err.message || 'Database transaction error'}. Transaction halted to preserve sequence integrity.`);
   }
 }
 

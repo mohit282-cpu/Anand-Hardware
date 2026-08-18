@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Users, Search, Plus, Edit2, Trash2, X, Phone, Mail, Building, MapPin, FileText, CheckCircle2 } from 'lucide-react';
 import { customerSchema, CustomerFormValues } from '@/lib/validation/schemas';
-import { getCustomers, createCustomer, updateCustomer, deleteCustomer, getLeads, getQuotations } from '@/lib/firestore/services';
+import { getCustomers, createCustomer, updateCustomer, deleteCustomer, getLeads, getQuotations } from '@/lib/supabase/services';
 import { Customer, Lead, Quotation } from '@/types';
 
 export default function AdminCustomersPage() {

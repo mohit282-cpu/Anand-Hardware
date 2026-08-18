@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Settings, Save, CheckCircle2, AlertCircle, RefreshCw, Image as ImageIcon } from 'lucide-react';
 import { businessSettingsSchema, BusinessSettingsFormValues } from '@/lib/validation/schemas';
-import { getBusinessSettings, updateBusinessSettings, DEFAULT_SETTINGS } from '@/lib/firestore/services';
+import { getBusinessSettings, updateBusinessSettings, DEFAULT_SETTINGS } from '@/lib/supabase/services';
 
 export default function AdminSettingsPage() {
   const [loading, setLoading] = useState(true);

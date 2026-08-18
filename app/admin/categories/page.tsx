@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Edit2, Trash2, X, FolderTree, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { categorySchema, CategoryFormValues } from '@/lib/validation/schemas';
-import { getCategories, createCategory, updateCategory, deleteCategory } from '@/lib/firestore/services';
+import { getCategories, createCategory, updateCategory, deleteCategory } from '@/lib/supabase/services';
 import { Category } from '@/types';
 
 export default function AdminCategoriesPage() {

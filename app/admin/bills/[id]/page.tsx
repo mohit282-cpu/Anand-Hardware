@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Printer, Wrench, CheckCircle2, Clock, XCircle, FileSpreadsheet } from 'lucide-react';
-import { getInvoiceById, getBusinessSettings } from '@/lib/firestore/services';
+import { getInvoiceById, getBusinessSettings } from '@/lib/supabase/services';
 import { Invoice, BusinessSettings } from '@/types';
 
 export default function InvoiceDetailPage() {

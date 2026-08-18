@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Boxes, ArrowUpRight, ArrowDownRight, RefreshCw, AlertCircle, CheckCircle2, History, Plus } from 'lucide-react';
 import { inventoryTransactionSchema, InventoryTransactionFormValues } from '@/lib/validation/schemas';
-import { getProducts, addInventoryTransaction, getInventoryTransactions } from '@/lib/firestore/services';
+import { getProducts, addInventoryTransaction, getInventoryTransactions } from '@/lib/supabase/services';
 import { Product, InventoryTransaction, InventoryTransactionType } from '@/types';
 import { useAuth } from '@/components/auth/AuthProvider';
 

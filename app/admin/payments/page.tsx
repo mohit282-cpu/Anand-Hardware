@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { CreditCard, Plus, Search, Eye, RefreshCw, Printer, CheckCircle2 } from 'lucide-react';
-import { getPayments, getCustomers, recordPayment } from '@/lib/firestore/services';
+import { getPayments, getCustomers, recordPayment } from '@/lib/supabase/services';
 import { Payment, Customer, PaymentMethod } from '@/types';
 import { useAuth } from '@/components/auth/AuthProvider';
 

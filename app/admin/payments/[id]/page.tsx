@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Printer, Wrench, CheckCircle2, CreditCard } from 'lucide-react';
-import { getPaymentById, getBusinessSettings } from '@/lib/firestore/services';
+import { getPaymentById, getBusinessSettings } from '@/lib/supabase/services';
 import { Payment, BusinessSettings } from '@/types';
 
 export default function PaymentReceiptPage() {

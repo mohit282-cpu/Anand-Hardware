@@ -2,7 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Search, Filter, Layers, FileText, CheckCircle2, ArrowRight, PackageCheck, SlidersHorizontal } from 'lucide-react';
-import { getCategories, getProducts } from '@/lib/firestore/services';
+import { getCategories, getProducts } from '@/lib/supabase/services';
 import { Category, Product } from '@/types';
 
 // Incremental Static Regeneration (ISR): Cache & revalidate every 1 hour (3600s)

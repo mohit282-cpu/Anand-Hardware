@@ -1,4 +1,3 @@
-'use me';
 'use client';
 
 import React, { useState } from 'react';
@@ -6,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { X, Send, CheckCircle2, AlertCircle } from 'lucide-react';
 import { leadInquirySchema, LeadInquiryFormValues } from '@/lib/validation/schemas';
-import { createLeadInquiry } from '@/lib/firestore/services';
+import { createLeadInquiry } from '@/lib/supabase/services';
 
 interface QuotationModalProps {
   isOpen: boolean;

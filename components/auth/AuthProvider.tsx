@@ -29,6 +29,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchProfile = async (currentUser: User) => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single();
+
+      if (profile) {
+        setUserProfile({
+          uid: currentUser.id,
+          email: currentUser.email || profile.email,
+          displayName: profile.display_name || currentUser.user_metadata?.displayName || 'Staff Member',
+          role: (profile.role as any) || 'admin',
+        });
+      } else {
+        setUserProfile({
+          uid: currentUser.id,
+          email: currentUser.email || '',
+          displayName: currentUser.user_metadata?.displayName || 'Anand Hardware Staff',
+          role: (currentUser.user_metadata?.role as any) || 'admin',
+        });
+      }
+    } catch {
+      setUserProfile({
+        uid: currentUser.id,
+        email: currentUser.email || '',
+        displayName: currentUser.user_metadata?.displayName || 'Anand Hardware Staff',
+        role: (currentUser.user_metadata?.role as any) || 'admin',
+      });
+    }
+  };
+
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session: initSession } }) => {
@@ -36,16 +69,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const currentUser = initSession?.user || null;
       setUser(currentUser);
       if (currentUser) {
-        setUserProfile({
-          uid: currentUser.id,
-          email: currentUser.email || 'admin@anandhardware.com',
-          displayName: currentUser.user_metadata?.displayName || 'Anand Hardware Staff',
-          role: (currentUser.user_metadata?.role as any) || 'admin',
-        });
+        fetchProfile(currentUser).finally(() => setLoading(false));
       } else {
         setUserProfile(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     // Listen for auth changes
@@ -54,16 +82,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const currentUser = currentSession?.user || null;
       setUser(currentUser);
       if (currentUser) {
-        setUserProfile({
-          uid: currentUser.id,
-          email: currentUser.email || 'admin@anandhardware.com',
-          displayName: currentUser.user_metadata?.displayName || 'Anand Hardware Staff',
-          role: (currentUser.user_metadata?.role as any) || 'admin',
-        });
+        fetchProfile(currentUser).finally(() => setLoading(false));
       } else {
         setUserProfile(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => {
@@ -80,18 +103,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (error) {
-        // Fallback for admin credentials in demo/standalone environment
-        if (email === 'admin@anandhardware.com' && pass === 'AnandAdmin2026!') {
-          const demoUser: UserProfile = {
-            uid: 'admin-static-uid-001',
-            email: 'admin@anandhardware.com',
-            displayName: 'Anand Hardware Admin',
-            role: 'admin',
-          };
-          setUserProfile(demoUser);
-          setUser({ id: 'admin-static-uid-001', email: 'admin@anandhardware.com' } as User);
-          return;
-        }
         throw new Error(error.message);
       }
     } finally {

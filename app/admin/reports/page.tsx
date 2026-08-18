@@ -13,7 +13,7 @@ import {
   Printer,
   CheckCircle2
 } from 'lucide-react';
-import { getFinancialReports } from '@/lib/firestore/services';
+import { getFinancialReports } from '@/lib/supabase/services';
 import { getAvailableFinancialYears, getNepalFY } from '@/lib/utils/nepalFY';
 
 export default function FinancialReportsPage() {

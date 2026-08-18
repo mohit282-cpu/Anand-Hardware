@@ -14,7 +14,7 @@ import {
   AlertTriangle,
   Printer
 } from 'lucide-react';
-import { getInvoices, confirmInvoice, cancelInvoice } from '@/lib/firestore/services';
+import { getInvoices, confirmInvoice, cancelInvoice } from '@/lib/supabase/services';
 import { Invoice, InvoiceStatus } from '@/types';
 import { useAuth } from '@/components/auth/AuthProvider';
 

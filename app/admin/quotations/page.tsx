@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { FileSpreadsheet, Plus, Search, Eye, Printer, CheckCircle2, RefreshCw } from 'lucide-react';
-import { getQuotations, updateQuotationStatus } from '@/lib/firestore/services';
+import { getQuotations, updateQuotationStatus } from '@/lib/supabase/services';
 import { Quotation, QuotationStatus } from '@/types';
 
 export default function AdminQuotationsPage() {

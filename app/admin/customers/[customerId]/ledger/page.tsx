@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Printer, History, Wallet, CheckCircle2, Wrench } from 'lucide-react';
-import { getCustomerLedger, getCustomers, getBusinessSettings } from '@/lib/firestore/services';
+import { getCustomerLedger, getCustomers, getBusinessSettings } from '@/lib/supabase/services';
 import { Customer, CustomerLedgerEntry, BusinessSettings } from '@/types';
 
 export default function CustomerLedgerPage() {

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, Trash2, ArrowLeft, Save, CheckCircle2, Calculator, Search, UserCheck } from 'lucide-react';
-import { getProducts, getCustomers, createInvoice, getQuotationById } from '@/lib/firestore/services';
+import { getProducts, getCustomers, createInvoice, getQuotationById } from '@/lib/supabase/services';
 import { Product, Customer, QuotationItem, PaymentType } from '@/types';
 import { useAuth } from '@/components/auth/AuthProvider';
 

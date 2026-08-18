@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Inbox, Search, Filter, Phone, Mail, FileSpreadsheet, CheckCircle2, Clock, ArrowRight, RefreshCw } from 'lucide-react';
-import { getLeads, updateLeadStatus } from '@/lib/firestore/services';
+import { getLeads, updateLeadStatus } from '@/lib/supabase/services';
 import { Lead, LeadStatus } from '@/types';
 
 export default function AdminLeadsPage() {
