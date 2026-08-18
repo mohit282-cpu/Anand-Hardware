@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Settings, Save, CheckCircle2, AlertCircle, RefreshCw, Image as ImageIcon } from 'lucide-react';
 import { businessSettingsSchema, BusinessSettingsFormValues } from '@/lib/validation/schemas';
 import { getBusinessSettings, updateBusinessSettings, DEFAULT_SETTINGS } from '@/lib/supabase/services';
+import { ImageUploader } from '@/components/ui/image-uploader';
 
 export default function AdminSettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -17,6 +18,7 @@ export default function AdminSettingsPage() {
     register,
     handleSubmit,
     reset,
+    setValue,
     watch,
     formState: { errors },
   } = useForm<BusinessSettingsFormValues>({
@@ -124,19 +126,19 @@ export default function AdminSettingsPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Logo Image URL</label>
-            <input
-              type="text"
-              {...register('logoUrl')}
-              className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
-              placeholder="https://anandhardware.com/logo.png"
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Business Logo</label>
+            <ImageUploader
+              value={watch('logoUrl') || ''}
+              folder="business"
+              entityId="logo"
+              label="Business Logo"
+              description="JPG, PNG, WEBP up to 5MB"
+              showAltInput={false}
+              onChange={(val) => {
+                setValue('logoUrl', val.imageUrl, { shouldValidate: true });
+              }}
             />
-            {watchLogoUrl && (
-              <div className="mt-2 flex items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-200 w-fit">
-                <img src={watchLogoUrl} alt="Logo Preview" className="h-8 object-contain" onError={(e) => (e.target as HTMLElement).style.display = 'none'} />
-                <span className="text-[10px] text-slate-500">Logo Preview</span>
-              </div>
-            )}
+            {errors.logoUrl && <p className="mt-1 text-xs text-rose-500">{errors.logoUrl.message}</p>}
           </div>
         </div>
 

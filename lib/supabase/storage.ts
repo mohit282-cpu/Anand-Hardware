@@ -28,13 +28,19 @@ export function validateImageFile(file: File): ValidationResult {
   if (!ALLOWED_MIME_TYPES.includes(mime)) {
     return {
       valid: false,
-      message: 'Invalid file format. Image must be JPG, JPEG, PNG, or WebP.',
+      message: 'Please upload a JPG, PNG, or WEBP image under 5MB.',
     };
   }
 
-  // Reject SVG / Executables explicitly
-  if (mime.includes('svg') || file.name.endsWith('.svg') || file.name.endsWith('.exe')) {
-    return { valid: false, message: 'SVG and executable files are not allowed.' };
+  // Reject SVG / Executables / ZIP explicitly
+  if (
+    mime.includes('svg') ||
+    file.name.endsWith('.svg') ||
+    file.name.endsWith('.exe') ||
+    file.name.endsWith('.zip') ||
+    file.name.endsWith('.pdf')
+  ) {
+    return { valid: false, message: 'Please upload a JPG, PNG, or WEBP image under 5MB.' };
   }
 
   // Validate File Size (5 MB)
@@ -42,7 +48,7 @@ export function validateImageFile(file: File): ValidationResult {
     const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
     return {
       valid: false,
-      message: `File size (${sizeMb} MB) exceeds maximum limit of 5 MB.`,
+      message: `Image is too large (${sizeMb} MB). Maximum size is 5MB.`,
     };
   }
 
@@ -54,7 +60,7 @@ export function validateImageFile(file: File): ValidationResult {
  * Converts to WebP format, resizes max dimension to 1200px, 85% quality.
  */
 export async function compressProductImage(file: File, maxDimension = 1200, quality = 0.85): Promise<Blob> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     // If not running in browser environment or file is small WebP, return raw file
     if (typeof window === 'undefined' || !window.HTMLCanvasElement) {
       resolve(file);
@@ -118,15 +124,15 @@ export async function compressProductImage(file: File, maxDimension = 1200, qual
  * Ensure storage bucket 'product-images' exists in Supabase.
  * Attempts automatic creation if missing.
  */
-export async function ensureBucketExists(): Promise<boolean> {
+export async function ensureBucketExists(bucketName = BUCKET_NAME): Promise<boolean> {
   try {
-    const { data: bucket, error: getErr } = await supabase.storage.getBucket(BUCKET_NAME);
+    const { data: bucket, error: getErr } = await supabase.storage.getBucket(bucketName);
     if (!bucket || getErr) {
-      const { error: createErr } = await supabase.storage.createBucket(BUCKET_NAME, {
+      const { error: createErr } = await supabase.storage.createBucket(bucketName, {
         public: true,
       });
       if (createErr) {
-        console.warn('Bucket auto-creation failed:', createErr.message);
+        console.warn(`Bucket '${bucketName}' auto-creation failed:`, createErr.message);
         return false;
       }
     }
@@ -138,10 +144,13 @@ export async function ensureBucketExists(): Promise<boolean> {
 }
 
 /**
- * Upload product image to Supabase Storage with unique path.
- * Unique path format: products/{productId || 'temp'}/{timestamp}-{random}.webp
+ * Generic upload image function for any folder (products, categories, business, etc.)
  */
-export async function uploadProductImage(file: File, productId?: string): Promise<UploadResult> {
+export async function uploadStorageImage(
+  file: File,
+  folder = 'products',
+  entityId?: string
+): Promise<UploadResult> {
   const validation = validateImageFile(file);
   if (!validation.valid) {
     throw new Error(validation.message || 'Invalid image file.');
@@ -151,10 +160,11 @@ export async function uploadProductImage(file: File, productId?: string): Promis
   const compressedBlob = await compressProductImage(file);
 
   // Generate unique file path
-  const folder = productId ? productId.replace(/[^a-zA-Z0-9_-]/g, '') : 'catalog';
+  const sanitizedFolder = folder.replace(/[^a-zA-Z0-9_-]/g, '');
+  const subFolder = entityId ? entityId.replace(/[^a-zA-Z0-9_-]/g, '') : 'general';
   const timestamp = Date.now();
   const randomStr = Math.random().toString(36).substring(2, 8);
-  const filePath = `products/${folder}/${timestamp}-${randomStr}.webp`;
+  const filePath = `${sanitizedFolder}/${subFolder}/${timestamp}-${randomStr}.webp`;
 
   // Attempt 1: Direct Upload
   let { data, error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, compressedBlob, {
@@ -165,8 +175,8 @@ export async function uploadProductImage(file: File, productId?: string): Promis
 
   // If Bucket Not Found, attempt automatic creation and retry
   if (error && (error.message?.toLowerCase().includes('bucket not found') || (error as any).statusCode === 404)) {
-    console.warn('Bucket product-images not found. Attempting automatic creation...');
-    await ensureBucketExists();
+    console.warn(`Bucket ${BUCKET_NAME} not found. Attempting automatic creation...`);
+    await ensureBucketExists(BUCKET_NAME);
 
     const retry = await supabase.storage.from(BUCKET_NAME).upload(filePath, compressedBlob, {
       contentType: 'image/webp',
@@ -180,12 +190,11 @@ export async function uploadProductImage(file: File, productId?: string): Promis
 
   if (error || !data) {
     console.error('Supabase storage upload error:', error);
-    const errMsg = error?.message || 'Bucket product-images not found.';
+    const errMsg = error?.message || `Bucket ${BUCKET_NAME} not found.`;
 
-    // If bucket creation requires Supabase Dashboard setup:
     if (errMsg.toLowerCase().includes('bucket not found')) {
       throw new Error(
-        `Bucket 'product-images' does not exist in Supabase Storage. Please execute supabase/schema.sql or create a public bucket named 'product-images' in your Supabase Dashboard under Storage -> New Bucket.`
+        `Bucket '${BUCKET_NAME}' does not exist in Supabase Storage. Please execute supabase/schema.sql or create a public bucket named '${BUCKET_NAME}' in your Supabase Dashboard under Storage -> New Bucket.`
       );
     }
     throw new Error(`Failed to upload image: ${errMsg}`);
@@ -201,7 +210,14 @@ export async function uploadProductImage(file: File, productId?: string): Promis
 }
 
 /**
- * Delete product image from Supabase Storage.
+ * Upload product image to Supabase Storage (backward compatible wrapper).
+ */
+export async function uploadProductImage(file: File, productId?: string): Promise<UploadResult> {
+  return uploadStorageImage(file, 'products', productId);
+}
+
+/**
+ * Delete image from Supabase Storage.
  */
 export async function deleteProductImage(imagePath: string): Promise<void> {
   if (!imagePath) return;
@@ -213,25 +229,36 @@ export async function deleteProductImage(imagePath: string): Promise<void> {
   }
 }
 
+export const deleteStorageImage = deleteProductImage;
+
 /**
- * Replace existing product image safely:
+ * Replace existing image safely:
  * 1. Upload new image.
  * 2. Return new image URL & path.
- * 3. Delete old image path ONLY after caller confirms DB update.
+ * 3. Clean up old image path if provided.
  */
-export async function replaceProductImage(
-  productId: string,
-  newFile: File,
+export async function replaceStorageImage(
+  file: File,
+  folder = 'products',
+  entityId?: string,
   oldImagePath?: string
 ): Promise<UploadResult> {
-  const newUpload = await uploadProductImage(newFile, productId);
+  const newUpload = await uploadStorageImage(file, folder, entityId);
 
-  // Clean up old image asynchronously if old path exists
+  // Clean up old image asynchronously if old path exists and differs
   if (oldImagePath && oldImagePath !== newUpload.imagePath) {
-    deleteProductImage(oldImagePath).catch(err => {
+    deleteStorageImage(oldImagePath).catch(err => {
       console.warn('Failed to delete old storage file:', err);
     });
   }
 
   return newUpload;
+}
+
+export async function replaceProductImage(
+  productId: string,
+  newFile: File,
+  oldImagePath?: string
+): Promise<UploadResult> {
+  return replaceStorageImage(newFile, 'products', productId, oldImagePath);
 }
