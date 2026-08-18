@@ -112,6 +112,40 @@ export async function getCategories(onlyActive = false): Promise<Category[]> {
   }
 }
 
+export async function getCategoriesWithCount(onlyActive = false): Promise<(Category & { productCount: number })[]> {
+  try {
+    const categories = await getCategories(onlyActive);
+    const { data: products } = await supabase.from('products').select('category_id');
+    const countMap: Record<string, number> = {};
+    (products || []).forEach((p: any) => {
+      if (p.category_id) {
+        countMap[p.category_id] = (countMap[p.category_id] || 0) + 1;
+      }
+    });
+    return categories.map(cat => ({
+      ...cat,
+      productCount: countMap[cat.id] || 0,
+    }));
+  } catch (err) {
+    console.error('Failed to get categories with count:', err);
+    return [];
+  }
+}
+
+export async function getDistinctBrands(): Promise<string[]> {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('brand')
+      .not('brand', 'is', null);
+    if (error || !data) return [];
+    const brands = Array.from(new Set(data.map((p: any) => p.brand).filter(Boolean)));
+    return brands.sort();
+  } catch (err) {
+    return [];
+  }
+}
+
 export async function getCategoryById(id: string): Promise<Category | null> {
   try {
     const { data, error } = await supabase.from('categories').select('*').eq('id', id).single();

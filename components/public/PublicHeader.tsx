@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Phone, MapPin, Clock, Menu, X, FileText, Wrench } from 'lucide-react';
+import { Phone, MapPin, Clock, Menu, X, FileText, Wrench, UserCheck } from 'lucide-react';
 import { QuotationModal } from '@/components/public/QuotationModal';
 
 export function PublicHeader() {
@@ -13,7 +13,7 @@ export function PublicHeader() {
 
   const navLinks = [
     { name: 'Home', href: '/' },
-    { name: 'Products Catalog', href: '/products' },
+    { name: 'Products', href: '/products' },
     { name: 'Categories', href: '/categories' },
     { name: 'About Us', href: '/about' },
     { name: 'Contact Us', href: '/contact' },
@@ -24,24 +24,31 @@ export function PublicHeader() {
       {/* Top Banner Bar */}
       <div className="bg-navy-950 text-slate-300 text-xs py-2 px-4 border-b border-navy-800">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
-          <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-brand-500" />
+          <div className="flex items-center gap-3 sm:gap-4 flex-wrap justify-center sm:justify-start">
+            <span className="flex items-center gap-1.5 text-slate-300">
+              <MapPin className="w-3.5 h-3.5 text-brand-500 shrink-0" />
               Main Road, Ward 7, Biratnagar, Nepal
             </span>
-            <span className="hidden md:flex items-center gap-1.5 border-l border-navy-800 pl-4">
-              <Clock className="w-3.5 h-3.5 text-brand-500" />
-              Sun - Fri: 8:00 AM - 7:00 PM
+            <span className="hidden md:flex items-center gap-1.5 border-l border-navy-800 pl-4 text-slate-300">
+              <Clock className="w-3.5 h-3.5 text-brand-500 shrink-0" />
+              Sun – Fri: 8:00 AM – 7:00 PM
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <a href="tel:+97721523456" className="flex items-center gap-1.5 font-medium hover:text-white transition">
-              <Phone className="w-3.5 h-3.5 text-brand-500" />
-              +977 21-523456
+            <a
+              href="tel:+97721523456"
+              className="flex items-center gap-1.5 font-medium hover:text-white transition"
+            >
+              <Phone className="w-3.5 h-3.5 text-brand-500 shrink-0" />
+              <span>+977 21-523456</span>
             </a>
-            <span className="text-slate-600">|</span>
-            <Link href="/admin/login" className="text-slate-400 hover:text-brand-500 transition">
-              Staff Login
+            <span className="text-slate-700">|</span>
+            <Link
+              href="/admin/login"
+              className="flex items-center gap-1 text-slate-400 hover:text-brand-400 transition font-medium"
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              <span>Staff Portal</span>
             </Link>
           </div>
         </div>
@@ -52,12 +59,16 @@ export function PublicHeader() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-11 h-11 bg-navy-900 rounded-xl flex items-center justify-center text-brand-500 shadow-lg group-hover:scale-105 transition">
+            <div className="w-11 h-11 bg-navy-950 rounded-xl flex items-center justify-center text-brand-500 shadow-md group-hover:scale-105 transition">
               <Wrench className="w-6 h-6" />
             </div>
             <div>
-              <span className="text-xl font-black tracking-tight text-navy-950 block">ANAND HARDWARE</span>
-              <span className="text-[10px] font-semibold tracking-widest text-brand-600 uppercase block">Building Supplies & Hardware</span>
+              <span className="text-xl font-black tracking-tight text-navy-950 block leading-none">
+                ANAND HARDWARE
+              </span>
+              <span className="text-[10px] font-bold tracking-widest text-brand-600 uppercase block mt-1">
+                Building Supplies & Hardware
+              </span>
             </div>
           </Link>
 
@@ -69,9 +80,9 @@ export function PublicHeader() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition ${
                     isActive
-                      ? 'bg-navy-900 text-white shadow-sm'
+                      ? 'bg-navy-950 text-white shadow-sm'
                       : 'text-slate-700 hover:bg-slate-100 hover:text-navy-950'
                   }`}
                 >
@@ -89,7 +100,7 @@ export function PublicHeader() {
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold rounded-xl shadow-md transition hover:-translate-y-0.5"
             >
               <FileText className="w-4 h-4" />
-              Request Quote
+              <span>REQUEST QUOTE</span>
             </button>
           </div>
 
@@ -98,6 +109,7 @@ export function PublicHeader() {
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition"
+            aria-label="Toggle Navigation Menu"
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -113,25 +125,25 @@ export function PublicHeader() {
                   key={link.href}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`block px-4 py-2.5 rounded-xl text-sm font-semibold ${
-                    isActive ? 'bg-navy-900 text-white' : 'text-slate-700 hover:bg-slate-100'
+                  className={`block px-4 py-2.5 rounded-xl text-sm font-bold ${
+                    isActive ? 'bg-navy-950 text-white' : 'text-slate-700 hover:bg-slate-100'
                   }`}
                 >
                   {link.name}
                 </Link>
               );
             })}
-            <div className="pt-2">
+            <div className="pt-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => {
                   setMobileMenuOpen(false);
                   setQuoteModalOpen(true);
                 }}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-brand-600 text-white font-bold rounded-xl text-sm shadow-md"
+                className="w-full flex items-center justify-center gap-2 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-sm shadow-md"
               >
                 <FileText className="w-4 h-4" />
-                Request Quote
+                <span>REQUEST QUOTE</span>
               </button>
             </div>
           </div>
