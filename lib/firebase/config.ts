@@ -1,8 +1,8 @@
 export const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyCrucialNebulaAnandHardware2026",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "crucial-nebula-2f6jr.firebaseapp.com",
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "crucial-nebula-2f6jr",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "crucial-nebula-2f6jr.appspot.com",
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "1074983707950",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:1074983707950:web:anandhardware",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyC8l6QDzwKnrEEafqrkYt4AEsExCZ51v0E",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "anand-hardware-f946b.firebaseapp.com",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "anand-hardware-f946b",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "anand-hardware-f946b.firebasestorage.app",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "970626883701",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:970626883701:web:bda015c51c8c9fcd1d583c",
 };
