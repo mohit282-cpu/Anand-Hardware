@@ -11,11 +11,9 @@ import {
   Layers,
   ArrowRight,
   Award,
-  Clock,
   BadgePercent,
   Wrench,
-  Building2,
-  FileText
+  Sparkles
 } from 'lucide-react';
 import { getCategoriesWithCount, getProducts, getDistinctBrands } from '@/lib/supabase/services';
 import { HeroSearch } from '@/components/public/HeroSearch';
@@ -29,20 +27,15 @@ export const metadata: Metadata = {
 };
 
 // Incremental Static Regeneration (ISR): Cache & revalidate every 1 hour (3600s)
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function HomePage() {
-  const [categories, featuredProductsRaw, distinctBrands] = await Promise.all([
+  const [categories, featuredProducts, distinctBrands] = await Promise.all([
     getCategoriesWithCount(true),
     getProducts({ onlyActive: true, featured: true, limitCount: 8 }),
     getDistinctBrands(),
   ]);
-
-  // If no products are marked as featured, fallback to all active products
-  let featuredProducts = featuredProductsRaw;
-  if (featuredProducts.length === 0) {
-    featuredProducts = await getProducts({ onlyActive: true, limitCount: 8 });
-  }
 
   // Fallback brand list if database has no brands yet
   const brandsList =
@@ -102,63 +95,81 @@ export default async function HomePage() {
               </div>
             </div>
 
-            {/* RIGHT COLUMN: Real Product Visual Composition */}
+            {/* RIGHT COLUMN: Real Featured Product Visual Composition */}
             <div className="lg:col-span-5 relative">
               <div className="bg-slate-900/60 backdrop-blur-xl rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Wrench className="w-4 h-4 text-brand-500" />
-                    Top Warehouse Stock
+                    <Sparkles className="w-4 h-4 text-brand-500" />
+                    Featured Products
                   </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full">
-                    Biratnagar Ready
+                  <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-500/20 text-brand-400 border border-brand-500/30 rounded-full">
+                    Admin Curated
                   </span>
                 </div>
 
-                {featuredProducts.slice(0, 3).map((item) => (
-                  <Link
-                    key={item.id}
-                    href={`/products/${item.slug || item.id}`}
-                    className="group bg-slate-800/50 hover:bg-slate-800 rounded-2xl p-3.5 border border-slate-700/60 transition flex items-center gap-4"
-                  >
-                    <div className="w-16 h-16 bg-slate-950 rounded-xl overflow-hidden relative shrink-0">
-                      {item.imageUrl ? (
-                        <Image
-                          src={item.imageUrl}
-                          alt={item.name}
-                          fill
-                          sizes="64px"
-                          className="object-cover group-hover:scale-110 transition duration-300"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-600">
-                          <Package className="w-8 h-8" />
+                {featuredProducts.length > 0 ? (
+                  <>
+                    {featuredProducts.slice(0, 3).map((item) => (
+                      <Link
+                        key={item.id}
+                        href={`/products/${item.slug || item.id}`}
+                        className="group bg-slate-800/50 hover:bg-slate-800 rounded-2xl p-3.5 border border-slate-700/60 transition flex items-center gap-4"
+                      >
+                        <div className="w-16 h-16 bg-slate-950 rounded-xl overflow-hidden relative shrink-0">
+                          {item.imageUrl ? (
+                            <Image
+                              src={item.imageUrl}
+                              alt={item.name}
+                              fill
+                              sizes="64px"
+                              className="object-cover group-hover:scale-110 transition duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-600">
+                              <Package className="w-8 h-8" />
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[10px] font-bold text-brand-400 uppercase block tracking-wider">
-                        {item.brand || 'Hardware'}
-                      </span>
-                      <h4 className="text-xs font-bold text-white truncate group-hover:text-brand-400 transition">
-                        {item.name}
-                      </h4>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        Rs. {item.price.toLocaleString()} / {item.unit || 'pcs'}
-                      </p>
-                    </div>
-                    <div className="w-7 h-7 bg-slate-700 group-hover:bg-brand-600 rounded-lg flex items-center justify-center text-white shrink-0 transition">
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </div>
-                  </Link>
-                ))}
+                        <div className="flex-1 min-w-0">
+                          <span className="text-[10px] font-bold text-brand-400 uppercase block tracking-wider">
+                            {item.brand || 'Hardware'}
+                          </span>
+                          <h4 className="text-xs font-bold text-white truncate group-hover:text-brand-400 transition">
+                            {item.name}
+                          </h4>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            Rs. {item.price.toLocaleString()} / {item.unit || 'pcs'}
+                          </p>
+                        </div>
+                        <div className="w-7 h-7 bg-slate-700 group-hover:bg-brand-600 rounded-lg flex items-center justify-center text-white shrink-0 transition">
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </div>
+                      </Link>
+                    ))}
 
-                <Link
-                  href="/products"
-                  className="w-full py-2.5 bg-brand-600/20 hover:bg-brand-600/30 text-brand-400 border border-brand-500/30 rounded-xl text-xs font-bold text-center transition block"
-                >
-                  Explore All Products ({featuredProducts.length}+ In Stock) →
-                </Link>
+                    <Link
+                      href="/products"
+                      className="w-full py-2.5 bg-brand-600/20 hover:bg-brand-600/30 text-brand-400 border border-brand-500/30 rounded-xl text-xs font-bold text-center transition block"
+                    >
+                      Browse Full Product Catalog →
+                    </Link>
+                  </>
+                ) : (
+                  <div className="p-6 text-center space-y-3 bg-slate-800/40 rounded-2xl border border-slate-700/50">
+                    <Wrench className="w-8 h-8 text-brand-400 mx-auto opacity-80" />
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">No Featured Items Selected</h4>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Toggle &quot;Featured&quot; in Admin Product Management to highlight products here.
+                    </p>
+                    <Link
+                      href="/products"
+                      className="inline-block px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl transition"
+                    >
+                      Browse All Products Catalog →
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -249,7 +260,7 @@ export default async function HomePage() {
               Featured Building Materials
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
-              Popular products available from Anand Hardware.
+              Popular products set as featured by Anand Hardware admin.
             </p>
           </div>
           <Link
@@ -268,8 +279,19 @@ export default async function HomePage() {
             ))}
           </div>
         ) : (
-          <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center text-slate-500 text-sm">
-            Unable to load featured products. Please check back shortly.
+          <div className="p-8 bg-white rounded-3xl border border-slate-200 text-center space-y-3">
+            <Package className="w-10 h-10 text-slate-400 mx-auto" />
+            <h3 className="text-base font-bold text-navy-950">No Featured Products Set</h3>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              No products have been toggled as &quot;Featured&quot; in the Admin Products dashboard yet.
+            </p>
+            <Link
+              href="/products"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-navy-950 hover:bg-brand-600 text-white font-bold text-xs rounded-xl transition shadow"
+            >
+              <span>View Entire Product Catalog</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
         )}
       </section>

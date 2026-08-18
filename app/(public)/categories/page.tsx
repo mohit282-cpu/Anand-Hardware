@@ -4,8 +4,8 @@ import Image from 'next/image';
 import { Layers, ArrowRight, PackageCheck } from 'lucide-react';
 import { getCategories } from '@/lib/supabase/services';
 
-// Incremental Static Regeneration (ISR): Cache & revalidate every 1 hour (3600s)
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function CategoriesPage() {
   const categories = await getCategories(true);

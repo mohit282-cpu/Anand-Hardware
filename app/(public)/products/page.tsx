@@ -5,8 +5,8 @@ import { Search, Filter, Layers, FileText, CheckCircle2, ArrowRight, PackageChec
 import { getCategories, getProducts } from '@/lib/supabase/services';
 import { Category, Product } from '@/types';
 
-// Incremental Static Regeneration (ISR): Cache & revalidate every 1 hour (3600s)
-export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 interface ProductsPageProps {
   searchParams: {
