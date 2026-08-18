@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Products: public can read active products, admin/staff can manage all
+    match /products/{productId} {
+      allow read: if resource.data.active == true || isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Categories: public can read active categories, admin/staff can manage all
+    match /categories/{categoryId} {
+      allow read: if resource.data.active == true || isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Public leads (inquiries): public can create new inquiries, only admin/staff can view or modify
+    match /leads/{leadId} {
+      allow create: if request.resource.data.status == "NEW"
+                    && request.resource.data.customerName is string
+                    && request.resource.data.phone is string
+                    && request.resource.data.quantity > 0;
+      allow read, update, delete: if isAuthenticated();
+    }
+
+    // Protected collections: customers, inventory, quotations, users
+    match /inventoryTransactions/{txnId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /customers/{customerId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /quotations/{quotationId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /users/{userId} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}
