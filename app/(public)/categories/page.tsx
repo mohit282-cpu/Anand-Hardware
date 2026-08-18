@@ -2,13 +2,13 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Layers, ArrowRight, PackageCheck } from 'lucide-react';
-import { getCategories } from '@/lib/supabase/services';
+import { getCategoriesServer } from '@/lib/supabase/server-queries';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// ISR: Revalidate every 60 seconds
+export const revalidate = 60;
 
 export default async function CategoriesPage() {
-  const categories = await getCategories(true);
+  const categories = await getCategoriesServer(true);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">

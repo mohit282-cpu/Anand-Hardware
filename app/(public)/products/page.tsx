@@ -2,11 +2,11 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Search, Filter, Layers, FileText, CheckCircle2, ArrowRight, PackageCheck, SlidersHorizontal } from 'lucide-react';
-import { getCategories, getProducts } from '@/lib/supabase/services';
+import { getCategoriesServer, getProductsServer } from '@/lib/supabase/server-queries';
 import { Category, Product } from '@/types';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// ISR: Revalidate every 60 seconds
+export const revalidate = 60;
 
 interface ProductsPageProps {
   searchParams: {
@@ -21,8 +21,8 @@ export default async function ProductsCatalogPage({ searchParams }: ProductsPage
   const searchQuery = (searchParams.search || '').trim().toLowerCase();
 
   const [categories, allProducts] = await Promise.all([
-    getCategories(true),
-    getProducts({
+    getCategoriesServer(true),
+    getProductsServer({
       onlyActive: true,
       categoryId: selectedCategory !== 'all' ? selectedCategory : undefined,
       limitCount: 48,

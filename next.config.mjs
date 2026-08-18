@@ -5,9 +5,11 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**',
+        hostname: 'bnbscflfrnwuigouxxfc.supabase.co',
       },
     ],
+    // Cache optimized images for 1 hour minimum
+    minimumCacheTTL: 3600,
   },
 };
 

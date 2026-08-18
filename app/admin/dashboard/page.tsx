@@ -16,44 +16,122 @@ import {
   ChevronRight,
   RefreshCw
 } from 'lucide-react';
-import {
-  getProducts,
-  getCustomers,
-  getLeads,
-  getQuotations,
-  getInventoryTransactions,
-  getInvoices,
-  updateLeadStatus
-} from '@/lib/supabase/services';
-import { Product, Customer, Lead, Quotation, InventoryTransaction, Invoice, LeadStatus } from '@/types';
+import { supabase } from '@/lib/supabase/client';
+import { Lead, LeadStatus } from '@/types';
 import { Receipt, Wallet, CreditCard, BarChart3 } from 'lucide-react';
+import { updateLeadStatus } from '@/lib/supabase/services';
+
+// Lightweight dashboard metrics — only fetches counts and top-5 lists
+interface DashboardMetrics {
+  totalProducts: number;
+  activeProducts: number;
+  lowStockProducts: { id: string; name: string; sku: string; stock: number; unit: string; lowStockLevel: number }[];
+  totalCustomers: number;
+  newLeadsCount: number;
+  totalLeadsCount: number;
+  recentLeads: Lead[];
+  pendingQuotations: number;
+  totalQuotations: number;
+  recentTransactionsCount: number;
+}
+
+async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
+  // Run all lightweight queries in parallel
+  const [
+    productsCountRes,
+    activeProductsRes,
+    lowStockRes,
+    customersCountRes,
+    newLeadsRes,
+    totalLeadsRes,
+    recentLeadsRes,
+    pendingQuotationsRes,
+    totalQuotationsRes,
+    txnCountRes,
+  ] = await Promise.all([
+    // Total products count
+    supabase.from('products').select('id', { count: 'exact', head: true }),
+    // Active products count
+    supabase.from('products').select('id', { count: 'exact', head: true }).eq('active', true),
+    // Low stock products (top 5 only, with minimal columns)
+    supabase.from('products')
+      .select('id, name, sku, stock, unit, low_stock_level')
+      .eq('active', true)
+      .or('stock.lte.low_stock_level')
+      .order('stock', { ascending: true })
+      .limit(10),
+    // Total customers count
+    supabase.from('customers').select('id', { count: 'exact', head: true }),
+    // New leads count
+    supabase.from('leads').select('id', { count: 'exact', head: true }).eq('status', 'NEW'),
+    // Total leads count
+    supabase.from('leads').select('id', { count: 'exact', head: true }),
+    // Recent leads (top 5 with minimal columns)
+    supabase.from('leads')
+      .select('id, customer_id, customer_name, phone, email, company, product_id, product_name, quantity, message, status, assigned_to, created_at, updated_at')
+      .order('created_at', { ascending: false })
+      .limit(5),
+    // Pending quotations count (DRAFT or SENT)
+    supabase.from('quotations').select('id', { count: 'exact', head: true }).in('status', ['DRAFT', 'SENT']),
+    // Total quotations count
+    supabase.from('quotations').select('id', { count: 'exact', head: true }),
+    // Recent inventory transactions count
+    supabase.from('inventory_transactions').select('id', { count: 'exact', head: true }),
+  ]);
+
+  // Filter low stock products client-side (Supabase .or() with column comparison is limited)
+  const lowStockProducts = (lowStockRes.data || [])
+    .filter((p: any) => p.stock <= p.low_stock_level)
+    .slice(0, 5)
+    .map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      sku: p.sku || '',
+      stock: p.stock || 0,
+      unit: p.unit || 'pcs',
+      lowStockLevel: p.low_stock_level || 10,
+    }));
+
+  const recentLeads: Lead[] = (recentLeadsRes.data || []).map((l: any) => ({
+    id: l.id,
+    customerId: l.customer_id,
+    customerName: l.customer_name,
+    phone: l.phone,
+    email: l.email || '',
+    company: l.company || '',
+    productId: l.product_id,
+    productName: l.product_name,
+    quantity: l.quantity,
+    message: l.message || '',
+    status: l.status,
+    assignedTo: l.assigned_to,
+    createdAt: l.created_at,
+    updatedAt: l.updated_at,
+  }));
+
+  return {
+    totalProducts: productsCountRes.count ?? 0,
+    activeProducts: activeProductsRes.count ?? 0,
+    lowStockProducts,
+    totalCustomers: customersCountRes.count ?? 0,
+    newLeadsCount: newLeadsRes.count ?? 0,
+    totalLeadsCount: totalLeadsRes.count ?? 0,
+    recentLeads,
+    pendingQuotations: pendingQuotationsRes.count ?? 0,
+    totalQuotations: totalQuotationsRes.count ?? 0,
+    recentTransactionsCount: txnCountRes.count ?? 0,
+  };
+}
 
 export default function AdminDashboardPage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [quotations, setQuotations] = useState<Quotation[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [transactions, setTransactions] = useState<InventoryTransaction[]>([]);
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const [prodData, custData, leadData, quotData, invData, txnData] = await Promise.all([
-        getProducts(),
-        getCustomers(),
-        getLeads(),
-        getQuotations(),
-        getInvoices(),
-        getInventoryTransactions(),
-      ]);
-      setProducts(prodData);
-      setCustomers(custData);
-      setLeads(leadData);
-      setQuotations(quotData);
-      setInvoices(invData);
-      setTransactions(txnData);
+      const data = await fetchDashboardMetrics();
+      setMetrics(data);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
     } finally {
@@ -65,24 +143,22 @@ export default function AdminDashboardPage() {
     loadDashboardData();
   }, []);
 
-  // Calculate Metrics efficiently from returned bounded docs
-  const totalProducts = products.length;
-  const activeProducts = products.filter(p => p.active !== false).length;
-  const lowStockProducts = products.filter(p => p.stock <= p.lowStockLevel);
-  const totalCustomers = customers.length;
-  const newLeads = leads.filter(l => l.status === 'NEW').length;
-  const pendingQuotations = quotations.filter(q => q.status === 'DRAFT' || q.status === 'SENT').length;
-
   const handleStatusChange = async (leadId: string, status: LeadStatus) => {
     try {
       await updateLeadStatus(leadId, status);
-      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status } : l));
+      setMetrics(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          recentLeads: prev.recentLeads.map(l => l.id === leadId ? { ...l, status } : l),
+        };
+      });
     } catch (err) {
       console.error('Failed to update lead status:', err);
     }
   };
 
-  if (loading) {
+  if (loading || !metrics) {
     return (
       <div className="space-y-6">
         <div className="h-8 bg-slate-200 rounded-lg w-48 animate-pulse" />
@@ -132,8 +208,8 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-3xl font-black text-navy-950">{totalProducts}</span>
-            <span className="text-xs font-semibold text-emerald-600">{activeProducts} Active</span>
+            <span className="text-3xl font-black text-navy-950">{metrics.totalProducts}</span>
+            <span className="text-xs font-semibold text-emerald-600">{metrics.activeProducts} Active</span>
           </div>
           <Link href="/admin/products" className="text-xs font-bold text-brand-600 hover:underline flex items-center gap-1">
             <span>Manage Products</span>
@@ -142,7 +218,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Low Stock Items */}
-        <div className={`bg-white rounded-2xl p-6 border shadow-sm space-y-4 ${lowStockProducts.length > 0 ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200'}`}>
+        <div className={`bg-white rounded-2xl p-6 border shadow-sm space-y-4 ${metrics.lowStockProducts.length > 0 ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200'}`}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Low Stock Products</span>
             <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-700">
@@ -150,7 +226,7 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-3xl font-black text-navy-950">{lowStockProducts.length}</span>
+            <span className="text-3xl font-black text-navy-950">{metrics.lowStockProducts.length}</span>
             <span className="text-xs font-semibold text-amber-700">Needs Replenishment</span>
           </div>
           <Link href="/admin/inventory" className="text-xs font-bold text-brand-600 hover:underline flex items-center gap-1">
@@ -168,8 +244,8 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-3xl font-black text-navy-950">{newLeads}</span>
-            <span className="text-xs font-semibold text-blue-600">{leads.length} Total Leads</span>
+            <span className="text-3xl font-black text-navy-950">{metrics.newLeadsCount}</span>
+            <span className="text-xs font-semibold text-blue-600">{metrics.totalLeadsCount} Total Leads</span>
           </div>
           <Link href="/admin/leads" className="text-xs font-bold text-brand-600 hover:underline flex items-center gap-1">
             <span>View Inquiries CRM</span>
@@ -186,7 +262,7 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-3xl font-black text-navy-950">{totalCustomers}</span>
+            <span className="text-3xl font-black text-navy-950">{metrics.totalCustomers}</span>
             <span className="text-xs font-semibold text-slate-500">Contractors & Clients</span>
           </div>
           <Link href="/admin/customers" className="text-xs font-bold text-brand-600 hover:underline flex items-center gap-1">
@@ -204,8 +280,8 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-3xl font-black text-navy-950">{pendingQuotations}</span>
-            <span className="text-xs font-semibold text-emerald-600">{quotations.length} Total Created</span>
+            <span className="text-3xl font-black text-navy-950">{metrics.pendingQuotations}</span>
+            <span className="text-xs font-semibold text-emerald-600">{metrics.totalQuotations} Total Created</span>
           </div>
           <Link href="/admin/quotations" className="text-xs font-bold text-brand-600 hover:underline flex items-center gap-1">
             <span>Quotations List</span>
@@ -222,8 +298,8 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-3xl font-black text-navy-950">{transactions.length}</span>
-            <span className="text-xs font-semibold text-slate-500">Recent Movements</span>
+            <span className="text-3xl font-black text-navy-950">{metrics.recentTransactionsCount}</span>
+            <span className="text-xs font-semibold text-slate-500">Total Movements</span>
           </div>
           <Link href="/admin/inventory" className="text-xs font-bold text-brand-600 hover:underline flex items-center gap-1">
             <span>Record Stock Transaction</span>
@@ -246,14 +322,14 @@ export default function AdminDashboardPage() {
                 Update Stock
               </Link>
             </div>
-            {lowStockProducts.length === 0 ? (
+            {metrics.lowStockProducts.length === 0 ? (
               <div className="p-8 text-center text-xs text-slate-500">
                 <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
                 <span>All product stock levels are above threshold.</span>
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {lowStockProducts.slice(0, 5).map(prod => (
+                {metrics.lowStockProducts.map(prod => (
                   <div key={prod.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
                     <div>
                       <span className="text-xs font-bold text-navy-950 block">{prod.name}</span>
@@ -282,13 +358,13 @@ export default function AdminDashboardPage() {
                 View All Leads
               </Link>
             </div>
-            {leads.length === 0 ? (
+            {metrics.recentLeads.length === 0 ? (
               <div className="p-8 text-center text-xs text-slate-500">
                 <span>No customer inquiries received yet.</span>
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {leads.slice(0, 5).map(lead => (
+                {metrics.recentLeads.map(lead => (
                   <div key={lead.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
                     <div>
                       <span className="text-xs font-bold text-navy-950 block">{lead.customerName}</span>

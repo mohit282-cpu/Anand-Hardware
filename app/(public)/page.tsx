@@ -15,7 +15,7 @@ import {
   Wrench,
   Sparkles
 } from 'lucide-react';
-import { getCategoriesWithCount, getProducts, getDistinctBrands } from '@/lib/supabase/services';
+import { getCategoriesWithCountServer, getFeaturedProductsServer, getDistinctBrandsServer } from '@/lib/supabase/server-queries';
 import { HeroSearch } from '@/components/public/HeroSearch';
 import { FeaturedProductCard } from '@/components/public/FeaturedProductCard';
 import { QuoteCTASection } from '@/components/public/QuoteCTASection';
@@ -26,15 +26,14 @@ export const metadata: Metadata = {
     'Biratnagar premier hardware & construction materials supplier. Panchakanya PVC pipes, Asian Paints, Shivam Cement, electrical wiring, sanitaryware, door locks, and tools with site delivery across Morang, Nepal.',
 };
 
-// Incremental Static Regeneration (ISR): Cache & revalidate every 1 hour (3600s)
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// ISR: Revalidate every 60 seconds — fast enough for featured toggles
+export const revalidate = 60;
 
 export default async function HomePage() {
   const [categories, featuredProducts, distinctBrands] = await Promise.all([
-    getCategoriesWithCount(true),
-    getProducts({ onlyActive: true, featured: true, limitCount: 8 }),
-    getDistinctBrands(),
+    getCategoriesWithCountServer(true),
+    getFeaturedProductsServer(8),
+    getDistinctBrandsServer(),
   ]);
 
   // Fallback brand list if database has no brands yet

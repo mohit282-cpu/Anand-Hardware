@@ -3,12 +3,15 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { ChevronRight, Layers, FileText, Phone, MessageSquare, ShieldCheck, CheckCircle2, AlertCircle, PackageCheck } from 'lucide-react';
-import { getProductBySlug, getProducts } from '@/lib/supabase/services';
+import { getProductBySlugServer } from '@/lib/supabase/server-queries';
+import { getProducts } from '@/lib/supabase/services';
 import { Product } from '@/types';
 
-// Incremental Static Regeneration (ISR): Cache & revalidate every 1 hour (3600s)
-export const revalidate = 3600;
+// ISR: Revalidate every 60 seconds
+export const revalidate = 60;
 
+// generateStaticParams runs at build time (no request scope / no cookies)
+// so it must use the browser client, not the server client
 export async function generateStaticParams() {
   const products = await getProducts({ onlyActive: true });
   return products.map((p) => ({
@@ -24,7 +27,7 @@ interface ProductDetailPageProps {
 
 export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
   const { slug } = params;
-  const product = await getProductBySlug(slug);
+  const product = await getProductBySlugServer(slug);
 
   if (!product) {
     notFound();
