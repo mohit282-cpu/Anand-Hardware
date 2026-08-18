@@ -20,6 +20,7 @@ import {
 import { productSchema, ProductFormValues } from '@/lib/validation/schemas';
 import { getProducts, getCategories, createProduct, updateProduct, deleteProduct } from '@/lib/firestore/services';
 import { Product, Category } from '@/types';
+import { ProductImageUpload } from '@/components/admin/ProductImageUpload';
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -97,6 +98,8 @@ export default function AdminProductsPage() {
       description: '',
       specifications: '',
       imageUrl: '',
+      imagePath: '',
+      imageAlt: '',
       stock: 0,
       lowStockLevel: 5,
       featured: false,
@@ -123,6 +126,8 @@ export default function AdminProductsPage() {
       description: product.description || '',
       specifications: specsText,
       imageUrl: product.imageUrl || '',
+      imagePath: product.imagePath || '',
+      imageAlt: product.imageAlt || '',
       stock: product.stock,
       lowStockLevel: product.lowStockLevel,
       featured: product.featured || false,
@@ -509,38 +514,24 @@ export default function AdminProductsPage() {
                 </div>
               </div>
 
-              {/* Image URL & Preview */}
+              {/* Product Image Upload (Supabase Storage) */}
               <div className="space-y-2 pt-2 border-t border-slate-100">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Image Web URL (Spark Plan Compliant)
+                  Product Image (Supabase Storage)
                 </label>
-                <input
-                  type="url"
-                  {...register('imageUrl')}
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
-                  placeholder="https://images.unsplash.com/photo-..."
+                <ProductImageUpload
+                  productId={editingProduct?.id}
+                  currentImageUrl={watch('imageUrl')}
+                  currentImagePath={watch('imagePath')}
+                  currentImageAlt={watch('imageAlt')}
+                  onImageChange={({ imageUrl, imagePath, imageAlt }) => {
+                    setValue('imageUrl', imageUrl, { shouldValidate: true });
+                    setValue('imagePath', imagePath);
+                    if (imageAlt) setValue('imageAlt', imageAlt);
+                  }}
+                  disabled={submitting}
                 />
                 {errors.imageUrl && <p className="mt-1 text-xs text-rose-500">{errors.imageUrl.message}</p>}
-
-                {/* Live Preview Box */}
-                {watchImageUrl && watchImageUrl.trim() !== '' && (
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-3">
-                    <div className="w-14 h-14 bg-white rounded-lg border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
-                      <img
-                        src={watchImageUrl}
-                        alt="Preview"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = 'none';
-                        }}
-                      />
-                    </div>
-                    <div className="text-xs text-slate-600 overflow-hidden">
-                      <span className="font-bold text-navy-950 block">Image Preview</span>
-                      <span className="text-[10px] text-slate-400 font-mono truncate block">{watchImageUrl}</span>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Description */}

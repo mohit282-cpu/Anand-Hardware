@@ -14,6 +14,8 @@ export const productSchema = z.object({
     (val) => !val || val === '' || /^https?:\/\/.+/i.test(val),
     'Please enter a valid URL starting with http:// or https://'
   ).optional().default(''),
+  imagePath: z.string().optional().default(''),
+  imageAlt: z.string().optional().default(''),
   stock: z.coerce.number().int().min(0, 'Stock cannot be negative'),
   lowStockLevel: z.coerce.number().int().min(0, 'Low stock threshold cannot be negative'),
   featured: z.boolean().default(false),

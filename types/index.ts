@@ -29,6 +29,8 @@ export interface Product {
   description: string;
   specifications: Record<string, string> | string;
   imageUrl: string;
+  imagePath?: string;
+  imageAlt?: string;
   stock: number;
   lowStockLevel: number;
   featured: boolean;
