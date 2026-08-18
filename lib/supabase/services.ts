@@ -194,7 +194,19 @@ export async function getProducts(options?: {
       query = query.eq('active', true);
     }
     if (options?.categoryId && options.categoryId !== 'all') {
-      query = query.eq('category_id', options.categoryId);
+      const validUuid = toValidUuidOrNull(options.categoryId);
+      if (validUuid) {
+        query = query.eq('category_id', validUuid);
+      } else {
+        const { data: catData } = await supabase
+          .from('categories')
+          .select('id')
+          .eq('slug', options.categoryId)
+          .single();
+        if (catData?.id) {
+          query = query.eq('category_id', catData.id);
+        }
+      }
     }
     if (options?.featured) {
       query = query.eq('featured', true);

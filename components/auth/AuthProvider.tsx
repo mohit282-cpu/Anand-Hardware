@@ -97,13 +97,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const login = async (email: string, pass: string) => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password: pass,
       });
 
       if (error) {
         throw new Error(error.message);
+      }
+
+      if (data.user && data.session) {
+        setUser(data.user);
+        setSession(data.session);
+        await fetchProfile(data.user);
       }
     } finally {
       setLoading(false);
