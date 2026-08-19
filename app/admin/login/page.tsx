@@ -34,10 +34,11 @@ export default function AdminLoginPage() {
       window.location.href = '/admin/dashboard';
     } catch (err: any) {
       console.error('Login error:', err);
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+      const msg = err.message || '';
+      if (msg.includes('Invalid login credentials') || msg.includes('Email not confirmed')) {
         setError('Invalid admin email or password.');
       } else {
-        setError(err.message || 'Authentication failed. Please verify your credentials.');
+        setError(msg || 'Authentication failed. Please verify your credentials.');
       }
     } finally {
       setLoading(false);

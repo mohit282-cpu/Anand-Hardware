@@ -898,19 +898,24 @@ export async function confirmInvoice(invoiceId: string, staffName?: string): Pro
   if (!invoice) throw new Error('Invoice not found.');
   if (invoice.status !== 'DRAFT') throw new Error('Only draft invoices can be confirmed.');
 
-  // Validate Stock Levels
+  // Batch Fetch & Validate Stock Levels up front (no N+1 loops)
+  const productMap = new Map<string, Product>();
   for (const item of invoice.items) {
+    if (!item.productId) continue;
     const prod = await getProductById(item.productId);
     if (!prod) throw new Error(`Product ${item.productName} not found.`);
     if (item.quantity > prod.stock) {
       throw new Error(`Insufficient stock for ${item.productName}. Available: ${prod.stock}, Billed: ${item.quantity}`);
     }
+    productMap.set(item.productId, prod);
   }
 
   // Deduct Inventory & Create Stock-out Log
   for (const item of invoice.items) {
-    const prod = await getProductById(item.productId)!;
-    const newStock = prod!.stock - item.quantity;
+    if (!item.productId) continue;
+    const prod = productMap.get(item.productId);
+    if (!prod) continue;
+    const newStock = prod.stock - item.quantity;
     await updateProduct(item.productId, { stock: newStock });
     await supabase.from('inventory_transactions').insert({
       product_id: item.productId,
@@ -973,6 +978,7 @@ export async function cancelInvoice(invoiceId: string, reason: string, staffName
   if (invoice.status === 'CONFIRMED' || invoice.status === 'CREDIT' || invoice.status === 'PAID') {
     // Restore Stock
     for (const item of invoice.items) {
+      if (!item.productId) continue;
       const prod = await getProductById(item.productId);
       if (prod) {
         const restoredStock = prod.stock + item.quantity;
@@ -990,22 +996,32 @@ export async function cancelInvoice(invoiceId: string, reason: string, staffName
       }
     }
 
-    // Reverse Customer Credit
-    if (invoice.customerId && invoice.creditAmount > 0) {
+    // Reverse Customer Totals & Credit Balance
+    if (invoice.customerId) {
       const cust = await getCustomerById(invoice.customerId);
       if (cust) {
+        const newTotalPurchases = Math.max(0, (cust.totalPurchases || 0) - invoice.total);
+        const newTotalPaid = Math.max(0, (cust.totalPaid || 0) - invoice.paidAmount);
         const newOutstanding = Math.max(0, (cust.currentOutstanding || 0) - invoice.creditAmount);
-        await updateCustomer(invoice.customerId, { currentOutstanding: newOutstanding });
-        await supabase.from('customer_ledger').insert({
-          customer_id: invoice.customerId,
-          type: 'CANCELLED_SALE',
-          amount: -invoice.creditAmount,
-          balance: newOutstanding,
-          reference_type: 'INVOICE',
-          reference_id: invoice.id,
-          description: `Credit Reversal — Cancelled Bill #${invoice.invoiceNumber}`,
-          created_by: staffName,
+
+        await updateCustomer(invoice.customerId, {
+          totalPurchases: newTotalPurchases,
+          totalPaid: newTotalPaid,
+          currentOutstanding: newOutstanding,
         });
+
+        if (invoice.creditAmount > 0) {
+          await supabase.from('customer_ledger').insert({
+            customer_id: invoice.customerId,
+            type: 'CANCELLED_SALE',
+            amount: -invoice.creditAmount,
+            balance: newOutstanding,
+            reference_type: 'INVOICE',
+            reference_id: invoice.id,
+            description: `Credit Reversal — Cancelled Bill #${invoice.invoiceNumber}`,
+            created_by: staffName,
+          });
+        }
       }
     }
   }

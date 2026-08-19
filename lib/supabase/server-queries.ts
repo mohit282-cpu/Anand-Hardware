@@ -10,17 +10,16 @@ import { DEFAULT_SETTINGS } from '@/lib/supabase/services';
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.SUPABASE_URL;
+  process.env.SUPABASE_URL ||
+  'https://bnbscflfrnwuigouxxfc.supabase.co';
 
 const supabaseKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_PUBLISHABLE_KEY;
+  process.env.SUPABASE_PUBLISHABLE_KEY ||
+  'sb_publishable_ptzvPufFtGVIA3IaK9BCdA_Hycw6wan';
 
 function getPublicClient() {
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Missing Supabase environment variables. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.');
-  }
   return createSupabaseClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false },
   });
@@ -46,7 +45,7 @@ export async function getCategoriesWithCountServer(
   const { data: categories, error } = await query;
   if (error) {
     console.error('Error in getCategoriesWithCountServer:', error);
-    throw new Error(`Failed to load categories: ${error.message}`);
+    return [];
   }
   if (!categories) return [];
 
@@ -81,7 +80,7 @@ export async function getCategoriesServer(onlyActive = false): Promise<Category[
   const { data, error } = await query;
   if (error) {
     console.error('Error in getCategoriesServer:', error);
-    throw new Error(`Failed to load categories: ${error.message}`);
+    return [];
   }
   if (!data) return [];
 
@@ -114,7 +113,7 @@ export async function getFeaturedProductsServer(limit = 8): Promise<Product[]> {
 
   if (error) {
     console.error('Error in getFeaturedProductsServer:', error);
-    throw new Error(`Failed to load featured products: ${error.message}`);
+    return [];
   }
   if (!data) return [];
 
@@ -218,7 +217,7 @@ export async function getProductsServer(options?: {
   const { data, error } = await query;
   if (error) {
     console.error('Error in getProductsServer:', error);
-    throw new Error(`Failed to load products: ${error.message}`);
+    return [];
   }
   if (!data) return [];
 

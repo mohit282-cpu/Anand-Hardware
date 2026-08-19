@@ -4,8 +4,7 @@ import { Phone, MapPin, Clock, ShieldCheck, Wrench, Mail } from 'lucide-react';
 import { PublicHeader } from '@/components/public/PublicHeader';
 import { getBusinessSettingsServer } from '@/lib/supabase/server-queries';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+export const revalidate = 30; // ISR: revalidate every 30 seconds
 
 export default async function PublicLayout({ children }: { children: React.ReactNode }) {
   const settings = await getBusinessSettingsServer();
