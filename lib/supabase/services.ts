@@ -17,18 +17,21 @@ import {
 } from '@/types';
 import { getNepalFY, formatDocumentNumber } from '@/lib/utils/nepalFY';
 
+// Default settings used as fallback when business_settings table has no row.
+// These contain the ACTUAL registered business information.
+// They should be updated via /admin/settings and stored in the database.
 export const DEFAULT_SETTINGS: BusinessSettings = {
   businessName: 'ANAND HARDWARE',
   logoUrl: '',
-  phone: '+977 21-523456',
-  email: 'info@anandhardware.com',
-  address: 'Main Road, Ward No. 7, Biratnagar, Morang, Nepal',
-  website: 'https://anandhardware.com',
-  openingHours: 'Sun - Fri: 8:00 AM - 7:00 PM',
-  whatsapp: '+9779801234567',
+  phone: '',
+  email: '',
+  address: 'Biratnagar, Morang, Nepal',
+  website: '',
+  openingHours: '',
+  whatsapp: '',
   facebook: '',
   instagram: '',
-  taxId: 'PAN: 302948576',
+  taxId: '',
   quotationPrefix: 'QT-',
   invoicePrefix: 'INV-',
   receiptPrefix: 'REC-',
@@ -41,38 +44,21 @@ export async function getNextSequenceNumber(
   seqType: 'quotations' | 'invoices' | 'payments',
   fyKey: string
 ): Promise<number> {
-  try {
-    const { data, error } = await supabase.rpc('get_next_sequence_number', {
-      p_seq_type: seqType,
-      p_fy_key: fyKey,
-    });
+  const { data, error } = await supabase.rpc('get_next_sequence_number', {
+    p_seq_type: seqType,
+    p_fy_key: fyKey,
+  });
 
-    if (error || typeof data !== 'number') {
-      console.warn('RPC sequence generation error, falling back to direct table update:', error);
-      // Fallback query if RPC procedure is not present
-      const { data: existing } = await supabase
-        .from('financial_sequences')
-        .select('last_number')
-        .eq('seq_type', seqType)
-        .eq('financial_year_key', fyKey)
-        .single();
-
-      const nextNum = (existing?.last_number || 0) + 1;
-      await supabase.from('financial_sequences').upsert({
-        seq_type: seqType,
-        financial_year_key: fyKey,
-        last_number: nextNum,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'seq_type,financial_year_key' });
-
-      return nextNum;
-    }
-
-    return data;
-  } catch (err: any) {
-    console.error('Failed to generate document sequence number:', err);
-    throw new Error(`Financial document sequence generation failed: ${err.message || 'Database transaction error'}. Transaction halted to preserve sequence integrity.`);
+  if (error || typeof data !== 'number') {
+    // CRITICAL: Do NOT fallback to read-then-upsert — it is NOT concurrency safe.
+    // The RPC must be installed. See supabase/schema.sql for the function definition.
+    throw new Error(
+      `Financial sequence generation failed for ${seqType}/${fyKey}: ${error?.message || 'RPC returned non-numeric value'}. ` +
+      'Ensure the get_next_sequence_number() function is installed in your Supabase database (see supabase/schema.sql).'
+    );
   }
+
+  return data;
 }
 
 export function toValidUuidOrNull(id?: string | null): string | null {
@@ -86,83 +72,85 @@ export function toValidUuidOrNull(id?: string | null): string | null {
 // CATEGORIES SERVICE
 // --------------------------------------------------------
 export async function getCategories(onlyActive = false): Promise<Category[]> {
-  try {
-    let query = supabase.from('categories').select('*').order('name', { ascending: true });
-    if (onlyActive) {
-      query = query.eq('active', true);
-    }
-    const { data, error } = await query;
-    if (error) {
-      console.error('Error fetching categories from Supabase:', error);
-      return [];
-    }
-    return (data || []).map(c => ({
-      id: c.id,
-      name: c.name,
-      slug: c.slug,
-      description: c.description || '',
-      imageUrl: c.image_url || '',
-      active: c.active,
-      createdAt: c.created_at,
-      updatedAt: c.updated_at,
-    }));
-  } catch (err) {
-    console.error('Failed to get categories:', err);
-    return [];
+  let query = supabase.from('categories').select('id, name, slug, description, image_url, active, created_at, updated_at').order('name', { ascending: true });
+  if (onlyActive) {
+    query = query.eq('active', true);
   }
+  const { data, error } = await query;
+  if (error) {
+    console.error('Error fetching categories:', error);
+    throw new Error(`Failed to load categories: ${error.message}`);
+  }
+  return (data || []).map(c => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    description: c.description || '',
+    imageUrl: c.image_url || '',
+    active: c.active,
+    createdAt: c.created_at,
+    updatedAt: c.updated_at,
+  }));
 }
 
 export async function getCategoriesWithCount(onlyActive = false): Promise<(Category & { productCount: number })[]> {
-  try {
-    const categories = await getCategories(onlyActive);
-    const { data: products } = await supabase.from('products').select('category_id');
-    const countMap: Record<string, number> = {};
-    (products || []).forEach((p: any) => {
-      if (p.category_id) {
-        countMap[p.category_id] = (countMap[p.category_id] || 0) + 1;
-      }
-    });
-    return categories.map(cat => ({
-      ...cat,
-      productCount: countMap[cat.id] || 0,
-    }));
-  } catch (err) {
-    console.error('Failed to get categories with count:', err);
-    return [];
+  let query = supabase
+    .from('categories')
+    .select('id, name, slug, description, image_url, active, created_at, updated_at, products(count)')
+    .order('name', { ascending: true });
+  if (onlyActive) {
+    query = query.eq('active', true);
   }
+  const { data, error } = await query;
+  if (error) {
+    console.error('Error fetching categories with count:', error);
+    throw new Error(`Failed to load categories: ${error.message}`);
+  }
+  return (data || []).map((c: any) => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    description: c.description || '',
+    imageUrl: c.image_url || '',
+    active: c.active,
+    createdAt: c.created_at,
+    updatedAt: c.updated_at,
+    productCount: c.products?.[0]?.count || 0,
+  }));
 }
 
 export async function getDistinctBrands(): Promise<string[]> {
-  try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('brand')
-      .not('brand', 'is', null);
-    if (error || !data) return [];
-    const brands = Array.from(new Set(data.map((p: any) => p.brand).filter(Boolean)));
-    return brands.sort();
-  } catch (err) {
-    return [];
+  // Try RPC first (true DISTINCT at DB level)
+  const { data: rpcData, error: rpcError } = await supabase.rpc('get_distinct_brands');
+  if (!rpcError && rpcData && Array.isArray(rpcData)) {
+    return rpcData.map((r: any) => r.brand).filter(Boolean);
   }
+
+  // Fallback: fetch brand column only and deduplicate
+  const { data, error } = await supabase
+    .from('products')
+    .select('brand')
+    .eq('active', true)
+    .not('brand', 'is', null)
+    .neq('brand', '');
+  if (error || !data) return [];
+  const brands = Array.from(new Set(data.map((p: any) => p.brand).filter(Boolean)));
+  return brands.sort();
 }
 
 export async function getCategoryById(id: string): Promise<Category | null> {
-  try {
-    const { data, error } = await supabase.from('categories').select('*').eq('id', id).single();
-    if (error || !data) return null;
-    return {
-      id: data.id,
-      name: data.name,
-      slug: data.slug,
-      description: data.description || '',
-      imageUrl: data.image_url || '',
-      active: data.active,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-    };
-  } catch (err) {
-    return null;
-  }
+  const { data, error } = await supabase.from('categories').select('id, name, slug, description, image_url, active, created_at, updated_at').eq('id', id).single();
+  if (error || !data) return null;
+  return {
+    id: data.id,
+    name: data.name,
+    slug: data.slug,
+    description: data.description || '',
+    imageUrl: data.image_url || '',
+    active: data.active,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
 }
 
 export async function createCategory(data: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
@@ -214,125 +202,118 @@ export async function getProducts(options?: {
   featured?: boolean;
   limitCount?: number;
 }): Promise<Product[]> {
-  try {
-    let query = supabase.from('products').select('*').order('name', { ascending: true });
+  let query = supabase.from('products')
+    .select('id, name, slug, sku, category_id, category_name, brand, price, unit, description, specifications, image_url, image_path, image_alt, stock, low_stock_level, featured, active, created_at, updated_at')
+    .order('name', { ascending: true });
 
-    if (options?.onlyActive) {
-      query = query.eq('active', true);
-    }
-    if (options?.categoryId && options.categoryId !== 'all') {
-      const validUuid = toValidUuidOrNull(options.categoryId);
-      if (validUuid) {
-        query = query.eq('category_id', validUuid);
-      } else {
-        const { data: catData } = await supabase
-          .from('categories')
-          .select('id')
-          .eq('slug', options.categoryId)
-          .single();
-        if (catData?.id) {
-          query = query.eq('category_id', catData.id);
-        }
+  if (options?.onlyActive) {
+    query = query.eq('active', true);
+  }
+  if (options?.categoryId && options.categoryId !== 'all') {
+    const validUuid = toValidUuidOrNull(options.categoryId);
+    if (validUuid) {
+      query = query.eq('category_id', validUuid);
+    } else {
+      const { data: catData } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('slug', options.categoryId)
+        .single();
+      if (catData?.id) {
+        query = query.eq('category_id', catData.id);
       }
     }
-    if (options?.featured) {
-      query = query.eq('featured', true);
-    }
-    if (options?.limitCount && options.limitCount > 0) {
-      query = query.limit(options.limitCount);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    return (data || []).map(p => ({
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      sku: p.sku,
-      categoryId: p.category_id || '',
-      categoryName: p.category_name || '',
-      brand: p.brand || '',
-      price: Number(p.price) || 0,
-      unit: p.unit || 'pcs',
-      description: p.description || '',
-      specifications: p.specifications || {},
-      imageUrl: p.image_url || '',
-      imagePath: p.image_path || '',
-      imageAlt: p.image_alt || '',
-      stock: p.stock || 0,
-      lowStockLevel: p.low_stock_level || 10,
-      featured: p.featured || false,
-      active: p.active !== false,
-      createdAt: p.created_at,
-      updatedAt: p.updated_at,
-    }));
-  } catch (err) {
-    console.error('Error fetching products:', err);
-    return [];
   }
+  if (options?.featured) {
+    query = query.eq('featured', true);
+  }
+  if (options?.limitCount && options.limitCount > 0) {
+    query = query.limit(options.limitCount);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return (data || []).map(p => ({
+    id: p.id,
+    name: p.name,
+    slug: p.slug,
+    sku: p.sku,
+    categoryId: p.category_id || '',
+    categoryName: p.category_name || '',
+    brand: p.brand || '',
+    price: Number(p.price) || 0,
+    unit: p.unit || 'pcs',
+    description: p.description || '',
+    specifications: p.specifications || {},
+    imageUrl: p.image_url || '',
+    imagePath: p.image_path || '',
+    imageAlt: p.image_alt || '',
+    stock: p.stock || 0,
+    lowStockLevel: p.low_stock_level || 10,
+    featured: p.featured || false,
+    active: p.active !== false,
+    createdAt: p.created_at,
+    updatedAt: p.updated_at,
+  }));
 }
 
 export async function getProductById(id: string): Promise<Product | null> {
-  try {
-    const { data: p, error } = await supabase.from('products').select('*').eq('id', id).single();
-    if (error || !p) return null;
-    return {
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      sku: p.sku,
-      categoryId: p.category_id || '',
-      categoryName: p.category_name || '',
-      brand: p.brand || '',
-      price: Number(p.price) || 0,
-      unit: p.unit || 'pcs',
-      description: p.description || '',
-      specifications: p.specifications || {},
-      imageUrl: p.image_url || '',
-      imagePath: p.image_path || '',
-      imageAlt: p.image_alt || '',
-      stock: p.stock || 0,
-      lowStockLevel: p.low_stock_level || 10,
-      featured: p.featured || false,
-      active: p.active !== false,
-      createdAt: p.created_at,
-      updatedAt: p.updated_at,
-    };
-  } catch (err) {
-    return null;
-  }
+  const { data: p, error } = await supabase.from('products')
+    .select('id, name, slug, sku, category_id, category_name, brand, price, unit, description, specifications, image_url, image_path, image_alt, stock, low_stock_level, featured, active, created_at, updated_at')
+    .eq('id', id).single();
+  if (error || !p) return null;
+  return {
+    id: p.id,
+    name: p.name,
+    slug: p.slug,
+    sku: p.sku,
+    categoryId: p.category_id || '',
+    categoryName: p.category_name || '',
+    brand: p.brand || '',
+    price: Number(p.price) || 0,
+    unit: p.unit || 'pcs',
+    description: p.description || '',
+    specifications: p.specifications || {},
+    imageUrl: p.image_url || '',
+    imagePath: p.image_path || '',
+    imageAlt: p.image_alt || '',
+    stock: p.stock || 0,
+    lowStockLevel: p.low_stock_level || 10,
+    featured: p.featured || false,
+    active: p.active !== false,
+    createdAt: p.created_at,
+    updatedAt: p.updated_at,
+  };
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
-  try {
-    const { data: p, error } = await supabase.from('products').select('*').eq('slug', slug).limit(1).single();
-    if (error || !p) return null;
-    return {
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      sku: p.sku,
-      categoryId: p.category_id || '',
-      categoryName: p.category_name || '',
-      brand: p.brand || '',
-      price: Number(p.price) || 0,
-      unit: p.unit || 'pcs',
-      description: p.description || '',
-      specifications: p.specifications || {},
-      imageUrl: p.image_url || '',
-      imagePath: p.image_path || '',
-      imageAlt: p.image_alt || '',
-      stock: p.stock || 0,
-      lowStockLevel: p.low_stock_level || 10,
-      featured: p.featured || false,
-      active: p.active !== false,
-      createdAt: p.created_at,
-      updatedAt: p.updated_at,
-    };
-  } catch (err) {
-    return null;
-  }
+  const { data: p, error } = await supabase.from('products')
+    .select('id, name, slug, sku, category_id, category_name, brand, price, unit, description, specifications, image_url, image_path, image_alt, stock, low_stock_level, featured, active, created_at, updated_at')
+    .eq('slug', slug).limit(1).single();
+  if (error || !p) return null;
+  return {
+    id: p.id,
+    name: p.name,
+    slug: p.slug,
+    sku: p.sku,
+    categoryId: p.category_id || '',
+    categoryName: p.category_name || '',
+    brand: p.brand || '',
+    price: Number(p.price) || 0,
+    unit: p.unit || 'pcs',
+    description: p.description || '',
+    specifications: p.specifications || {},
+    imageUrl: p.image_url || '',
+    imagePath: p.image_path || '',
+    imageAlt: p.image_alt || '',
+    stock: p.stock || 0,
+    lowStockLevel: p.low_stock_level || 10,
+    featured: p.featured || false,
+    active: p.active !== false,
+    createdAt: p.created_at,
+    updatedAt: p.updated_at,
+  };
 }
 
 export async function createProduct(data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
@@ -426,26 +407,23 @@ export async function deleteProduct(id: string): Promise<void> {
 // INVENTORY SERVICE
 // --------------------------------------------------------
 export async function getInventoryTransactions(): Promise<InventoryTransaction[]> {
-  try {
-    const { data, error } = await supabase.from('inventory_transactions').select('*').order('created_at', { ascending: false }).limit(100);
-    if (error) throw error;
-    return (data || []).map(tx => ({
-      id: tx.id,
-      productId: tx.product_id,
-      productName: tx.product_name,
-      type: tx.type,
-      quantity: tx.quantity,
-      reason: tx.reason,
-      referenceType: tx.reference_type,
-      referenceId: tx.reference_id,
-      note: tx.note,
-      createdAt: tx.created_at,
-      createdBy: tx.created_by,
-    }));
-  } catch (err) {
-    console.error('Error fetching inventory transactions:', err);
-    return [];
-  }
+  const { data, error } = await supabase.from('inventory_transactions')
+    .select('id, product_id, product_name, type, quantity, reason, reference_type, reference_id, note, created_at, created_by')
+    .order('created_at', { ascending: false }).limit(100);
+  if (error) throw error;
+  return (data || []).map(tx => ({
+    id: tx.id,
+    productId: tx.product_id,
+    productName: tx.product_name,
+    type: tx.type,
+    quantity: tx.quantity,
+    reason: tx.reason,
+    referenceType: tx.reference_type,
+    referenceId: tx.reference_id,
+    note: tx.note,
+    createdAt: tx.created_at,
+    createdBy: tx.created_by,
+  }));
 }
 
 export async function addInventoryTransaction(
@@ -494,52 +472,47 @@ export async function addInventoryTransaction(
 // CUSTOMERS SERVICE
 // --------------------------------------------------------
 export async function getCustomers(): Promise<Customer[]> {
-  try {
-    const { data, error } = await supabase.from('customers').select('*').order('name', { ascending: true });
-    if (error) throw error;
-    return (data || []).map(c => ({
-      id: c.id,
-      name: c.name,
-      phone: c.phone,
-      email: c.email || '',
-      company: c.company || '',
-      address: c.address || '',
-      notes: c.notes || '',
-      totalPurchases: Number(c.total_purchases) || 0,
-      totalPaid: Number(c.total_paid) || 0,
-      currentOutstanding: Number(c.current_outstanding) || 0,
-      creditLimit: Number(c.credit_limit) || 0,
-      createdAt: c.created_at,
-      updatedAt: c.updated_at,
-    }));
-  } catch (err) {
-    console.error('Error fetching customers:', err);
-    return [];
-  }
+  const { data, error } = await supabase.from('customers')
+    .select('id, name, phone, email, company, address, notes, total_purchases, total_paid, current_outstanding, credit_limit, created_at, updated_at')
+    .order('name', { ascending: true });
+  if (error) throw error;
+  return (data || []).map(c => ({
+    id: c.id,
+    name: c.name,
+    phone: c.phone,
+    email: c.email || '',
+    company: c.company || '',
+    address: c.address || '',
+    notes: c.notes || '',
+    totalPurchases: Number(c.total_purchases) || 0,
+    totalPaid: Number(c.total_paid) || 0,
+    currentOutstanding: Number(c.current_outstanding) || 0,
+    creditLimit: Number(c.credit_limit) || 0,
+    createdAt: c.created_at,
+    updatedAt: c.updated_at,
+  }));
 }
 
 export async function getCustomerById(id: string): Promise<Customer | null> {
-  try {
-    const { data: c, error } = await supabase.from('customers').select('*').eq('id', id).single();
-    if (error || !c) return null;
-    return {
-      id: c.id,
-      name: c.name,
-      phone: c.phone,
-      email: c.email || '',
-      company: c.company || '',
-      address: c.address || '',
-      notes: c.notes || '',
-      totalPurchases: Number(c.total_purchases) || 0,
-      totalPaid: Number(c.total_paid) || 0,
-      currentOutstanding: Number(c.current_outstanding) || 0,
-      creditLimit: Number(c.credit_limit) || 0,
-      createdAt: c.created_at,
-      updatedAt: c.updated_at,
-    };
-  } catch (err) {
-    return null;
-  }
+  const { data: c, error } = await supabase.from('customers')
+    .select('id, name, phone, email, company, address, notes, total_purchases, total_paid, current_outstanding, credit_limit, created_at, updated_at')
+    .eq('id', id).single();
+  if (error || !c) return null;
+  return {
+    id: c.id,
+    name: c.name,
+    phone: c.phone,
+    email: c.email || '',
+    company: c.company || '',
+    address: c.address || '',
+    notes: c.notes || '',
+    totalPurchases: Number(c.total_purchases) || 0,
+    totalPaid: Number(c.total_paid) || 0,
+    currentOutstanding: Number(c.current_outstanding) || 0,
+    creditLimit: Number(c.credit_limit) || 0,
+    createdAt: c.created_at,
+    updatedAt: c.updated_at,
+  };
 }
 
 export async function createCustomer(data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
@@ -580,33 +553,30 @@ export async function deleteCustomer(id: string): Promise<void> {
 // LEADS SERVICE
 // --------------------------------------------------------
 export async function getLeads(status?: LeadStatus): Promise<Lead[]> {
-  try {
-    let query = supabase.from('leads').select('*').order('created_at', { ascending: false });
-    if (status) {
-      query = query.eq('status', status);
-    }
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data || []).map(l => ({
-      id: l.id,
-      customerId: l.customer_id,
-      customerName: l.customer_name,
-      phone: l.phone,
-      email: l.email || '',
-      company: l.company || '',
-      productId: l.product_id,
-      productName: l.product_name,
-      quantity: l.quantity,
-      message: l.message || '',
-      status: l.status,
-      assignedTo: l.assigned_to,
-      createdAt: l.created_at,
-      updatedAt: l.updated_at,
-    }));
-  } catch (err) {
-    console.error('Error fetching leads:', err);
-    return [];
+  let query = supabase.from('leads')
+    .select('id, customer_id, customer_name, phone, email, company, product_id, product_name, quantity, message, status, assigned_to, created_at, updated_at')
+    .order('created_at', { ascending: false });
+  if (status) {
+    query = query.eq('status', status);
   }
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data || []).map(l => ({
+    id: l.id,
+    customerId: l.customer_id,
+    customerName: l.customer_name,
+    phone: l.phone,
+    email: l.email || '',
+    company: l.company || '',
+    productId: l.product_id,
+    productName: l.product_name,
+    quantity: l.quantity,
+    message: l.message || '',
+    status: l.status,
+    assignedTo: l.assigned_to,
+    createdAt: l.created_at,
+    updatedAt: l.updated_at,
+  }));
 }
 
 export async function createLead(data: Omit<Lead, 'id' | 'status' | 'createdAt' | 'updatedAt'>): Promise<string> {
