@@ -18,6 +18,7 @@ function NewBillContent() {
   const [saving, setSaving] = useState(false);
 
   // Customer State
+  const [customerType, setCustomerType] = useState<'registered' | 'walkin'>('walkin');
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -266,26 +267,65 @@ function NewBillContent() {
 
       {/* Customer Selection Card */}
       <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-navy-950 uppercase tracking-wider">Customer Information</h2>
-          {customers.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">Select Existing:</span>
-              <select
-                value={selectedCustomerId}
-                onChange={(e) => handleCustomerSelect(e.target.value)}
-                className="py-1 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none"
-              >
-                <option value="">-- Choose Customer --</option>
-                {customers.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.phone}) {c.currentOutstanding ? `— Outstanding: Rs. ${c.currentOutstanding}` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div>
+            <h2 className="text-sm font-bold text-navy-950 uppercase tracking-wider">Customer Information</h2>
+            <p className="text-[11px] text-slate-500">Select registered account or enter walk-in customer details for credit tracking.</p>
+          </div>
+
+          <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setCustomerType('walkin');
+                setSelectedCustomerId('');
+              }}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                customerType === 'walkin'
+                  ? 'bg-white text-navy-950 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Walk-in / Unregistered
+            </button>
+            <button
+              type="button"
+              onClick={() => setCustomerType('registered')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                customerType === 'registered'
+                  ? 'bg-brand-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Registered Customer
+            </button>
+          </div>
         </div>
+
+        {customerType === 'registered' && (
+          <div className="p-3 bg-brand-50/60 border border-brand-200 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+            <span className="text-xs font-bold text-brand-900">Select Existing Account:</span>
+            <select
+              value={selectedCustomerId}
+              onChange={(e) => handleCustomerSelect(e.target.value)}
+              className="w-full sm:w-auto py-1.5 px-3 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none"
+            >
+              <option value="">-- Choose Customer --</option>
+              {customers.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.phone}) {c.currentOutstanding ? `— Outstanding: Rs. ${c.currentOutstanding.toLocaleString()}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {customerType === 'walkin' && (
+          <div className="p-3 bg-amber-50/80 border border-amber-200 text-amber-800 text-xs rounded-2xl flex items-center gap-2">
+            <UserCheck className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>Walk-in Credit: Credit / Udhar will be automatically recorded under this customer&apos;s name &amp; phone number.</span>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <div>
@@ -297,7 +337,7 @@ function NewBillContent() {
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
-              placeholder="e.g. Ram Shrestha"
+              placeholder="e.g. Ram Bahadur"
               required
             />
           </div>
@@ -311,13 +351,13 @@ function NewBillContent() {
               value={customerPhone}
               onChange={(e) => setCustomerPhone(e.target.value)}
               className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
-              placeholder="9801234567"
+              placeholder="98XXXXXXXX"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Company / Firm</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Company / Firm (Optional)</label>
             <input
               type="text"
               value={customerCompany}
@@ -328,7 +368,7 @@ function NewBillContent() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Email</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Email (Optional)</label>
             <input
               type="email"
               value={customerEmail}

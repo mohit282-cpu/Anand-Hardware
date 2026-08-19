@@ -22,6 +22,24 @@ interface ProductDetailPageProps {
   };
 }
 
+export async function generateMetadata({ params }: ProductDetailPageProps) {
+  const product = await getProductBySlugServer(params.slug);
+  if (!product) {
+    return {
+      title: 'Product Not Found | Anand Hardware',
+    };
+  }
+  return {
+    title: `${product.name} | Anand Hardware Biratnagar`,
+    description: product.description ? product.description.slice(0, 160) : `Buy ${product.name} in Biratnagar, Nepal at Anand Hardware. Quality building & hardware materials.`,
+    openGraph: {
+      title: product.name,
+      description: product.description || `Quality hardware product at Anand Hardware`,
+      images: product.imageUrl ? [{ url: product.imageUrl }] : [],
+    },
+  };
+}
+
 export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
   const { slug } = params;
   const product = await getProductBySlugServer(slug);

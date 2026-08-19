@@ -473,7 +473,7 @@ export async function addInventoryTransaction(
 // --------------------------------------------------------
 export async function getCustomers(): Promise<Customer[]> {
   const { data, error } = await supabase.from('customers')
-    .select('id, name, phone, email, company, address, notes, total_purchases, total_paid, current_outstanding, credit_limit, created_at, updated_at')
+    .select('id, name, phone, email, company, address, notes, total_purchases, total_paid, current_outstanding, advance_balance, credit_limit, created_at, updated_at')
     .order('name', { ascending: true });
   if (error) throw error;
   return (data || []).map(c => ({
@@ -487,6 +487,7 @@ export async function getCustomers(): Promise<Customer[]> {
     totalPurchases: Number(c.total_purchases) || 0,
     totalPaid: Number(c.total_paid) || 0,
     currentOutstanding: Number(c.current_outstanding) || 0,
+    advanceBalance: Number(c.advance_balance) || 0,
     creditLimit: Number(c.credit_limit) || 0,
     createdAt: c.created_at,
     updatedAt: c.updated_at,
@@ -495,7 +496,7 @@ export async function getCustomers(): Promise<Customer[]> {
 
 export async function getCustomerById(id: string): Promise<Customer | null> {
   const { data: c, error } = await supabase.from('customers')
-    .select('id, name, phone, email, company, address, notes, total_purchases, total_paid, current_outstanding, credit_limit, created_at, updated_at')
+    .select('id, name, phone, email, company, address, notes, total_purchases, total_paid, current_outstanding, advance_balance, credit_limit, created_at, updated_at')
     .eq('id', id).single();
   if (error || !c) return null;
   return {
@@ -509,6 +510,7 @@ export async function getCustomerById(id: string): Promise<Customer | null> {
     totalPurchases: Number(c.total_purchases) || 0,
     totalPaid: Number(c.total_paid) || 0,
     currentOutstanding: Number(c.current_outstanding) || 0,
+    advanceBalance: Number(c.advance_balance) || 0,
     creditLimit: Number(c.credit_limit) || 0,
     createdAt: c.created_at,
     updatedAt: c.updated_at,
@@ -538,6 +540,10 @@ export async function updateCustomer(id: string, data: Partial<Customer>): Promi
   if (data.company !== undefined) updates.company = data.company;
   if (data.address !== undefined) updates.address = data.address;
   if (data.notes !== undefined) updates.notes = data.notes;
+  if (data.totalPurchases !== undefined) updates.total_purchases = data.totalPurchases;
+  if (data.totalPaid !== undefined) updates.total_paid = data.totalPaid;
+  if (data.currentOutstanding !== undefined) updates.current_outstanding = data.currentOutstanding;
+  if (data.advanceBalance !== undefined) updates.advance_balance = data.advanceBalance;
   if (data.creditLimit !== undefined) updates.credit_limit = data.creditLimit;
 
   const { error } = await supabase.from('customers').update(updates).eq('id', id);
@@ -764,6 +770,8 @@ export async function getInvoices(status?: InvoiceStatus): Promise<Invoice[]> {
       total: Number(inv.total),
       paidAmount: Number(inv.paid_amount),
       creditAmount: Number(inv.credit_amount),
+      advanceAmount: Number(inv.advance_amount) || 0,
+      advanceUsed: Number(inv.advance_used) || 0,
       paymentType: inv.payment_type,
       status: inv.status,
       notes: inv.notes || '',
@@ -806,6 +814,8 @@ export async function getInvoiceById(id: string): Promise<Invoice | null> {
       total: Number(inv.total),
       paidAmount: Number(inv.paid_amount),
       creditAmount: Number(inv.credit_amount),
+      advanceAmount: Number(inv.advance_amount) || 0,
+      advanceUsed: Number(inv.advance_used) || 0,
       paymentType: inv.payment_type,
       status: inv.status,
       notes: inv.notes || '',
@@ -839,6 +849,8 @@ export async function createInvoice(data: {
   total: number;
   paidAmount: number;
   creditAmount: number;
+  advanceAmount?: number;
+  advanceUsed?: number;
   paymentType: Invoice['paymentType'];
   status?: InvoiceStatus;
   notes?: string;
@@ -848,23 +860,64 @@ export async function createInvoice(data: {
   const fyInfo = getNepalFY();
   const seqNum = await getNextSequenceNumber('invoices', fyInfo.fyKey);
   const invoiceNumber = formatDocumentNumber('INV', fyInfo.fyString, seqNum);
+  let resolvedCustomerId = data.customerId || null;
 
-  const initialStatus: InvoiceStatus = data.confirmImmediately
-    ? (data.creditAmount > 0 ? 'CREDIT' : 'PAID')
-    : (data.status || 'DRAFT');
+  // Walk-in Debtor Auto-Resolution / Registration
+  if (!resolvedCustomerId && (data.customer.name || data.customer.phone)) {
+    try {
+      const cleanPhone = (data.customer.phone || '').trim();
+      const cleanName = (data.customer.name || '').trim();
+
+      // Check if matching customer exists by phone
+      if (cleanPhone) {
+        const { data: existing } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('phone', cleanPhone)
+          .limit(1)
+          .single();
+        if (existing?.id) {
+          resolvedCustomerId = existing.id;
+        }
+      }
+
+      // If still no customer and name/phone provided, create persistent debtor entry
+      if (!resolvedCustomerId && (cleanName || cleanPhone)) {
+        const newCustId = await createCustomer({
+          name: cleanName || 'Walk-in Customer',
+          phone: cleanPhone || '0000000000',
+          email: data.customer.email || '',
+          company: data.customer.company || 'Walk-in Customer',
+          address: data.customer.address || '',
+          notes: `Walk-in debtor created from Bill #${invoiceNumber}`,
+        });
+        resolvedCustomerId = newCustId;
+      }
+    } catch (err) {
+      console.warn('Walk-in customer resolution fallback:', err);
+    }
+  }
+
+  // Always insert as DRAFT initially so confirmInvoice can perform stock & ledger atomic processing
+  const initialStatus: InvoiceStatus = 'DRAFT';
 
   const { data: newInv, error: invErr } = await supabase.from('invoices').insert({
     invoice_number: invoiceNumber,
     financial_year: fyInfo.fyString,
     quotation_id: data.quotationId || null,
-    customer_id: data.customerId || null,
-    customer_info: data.customer,
+    customer_id: resolvedCustomerId,
+    customer_info: {
+      ...data.customer,
+      id: resolvedCustomerId || data.customer.id,
+    },
     subtotal: data.subtotal,
     discount: data.discount,
     tax: data.tax,
     total: data.total,
     paid_amount: data.paidAmount,
     credit_amount: data.creditAmount,
+    advance_amount: data.advanceAmount || 0,
+    advance_used: data.advanceUsed || 0,
     payment_type: data.paymentType,
     status: initialStatus,
     notes: data.notes || '',
@@ -1068,11 +1121,14 @@ export async function cancelInvoice(invoiceId: string, reason: string, staffName
 // --------------------------------------------------------
 // PAYMENTS SERVICE
 // --------------------------------------------------------
-export async function getPayments(method?: PaymentMethod): Promise<Payment[]> {
+export async function getPayments(method?: PaymentMethod, category?: string): Promise<Payment[]> {
   try {
     let query = supabase.from('payments').select('*').order('created_at', { ascending: false });
     if (method) {
       query = query.eq('payment_method', method);
+    }
+    if (category) {
+      query = query.eq('payment_category', category);
     }
     const { data, error } = await query;
     if (error) throw error;
@@ -1086,6 +1142,7 @@ export async function getPayments(method?: PaymentMethod): Promise<Payment[]> {
       customerPhone: p.customer_phone,
       amount: Number(p.amount),
       paymentMethod: p.payment_method,
+      paymentCategory: (p.payment_category as any) || 'SALE_PAYMENT',
       previousOutstanding: Number(p.previous_outstanding),
       remainingOutstanding: Number(p.remaining_outstanding),
       note: p.note || '',
@@ -1112,6 +1169,7 @@ export async function getPaymentById(id: string): Promise<Payment | null> {
       customerPhone: p.customer_phone,
       amount: Number(p.amount),
       paymentMethod: p.payment_method,
+      paymentCategory: (p.payment_category as any) || 'SALE_PAYMENT',
       previousOutstanding: Number(p.previous_outstanding),
       remainingOutstanding: Number(p.remaining_outstanding),
       note: p.note || '',
@@ -1131,11 +1189,34 @@ export async function recordPayment(data: {
   paymentMethod: PaymentMethod;
   note?: string;
   createdBy: string;
+  invoiceId?: string;
 }): Promise<string> {
+  // Try atomic PostgreSQL RPC first
+  const { data: rpcData, error: rpcError } = await supabase.rpc('receive_credit_payment', {
+    p_customer_id: data.customerId,
+    p_amount: data.amount,
+    p_payment_method: data.paymentMethod,
+    p_note: data.note || '',
+    p_staff_name: data.createdBy,
+    p_invoice_id: data.invoiceId || null,
+  });
+
+  if (!rpcError && rpcData?.payment_id) {
+    return rpcData.payment_id;
+  }
+
+  if (rpcError && !rpcError.message.includes('function') && !rpcError.message.includes('not found')) {
+    throw new Error(`Failed to record payment: ${rpcError.message}`);
+  }
+
+  // Application-level transactional execution fallback
   const cust = await getCustomerById(data.customerId);
   if (!cust) throw new Error('Customer not found.');
 
   const prevOutstanding = cust.currentOutstanding || 0;
+  if (data.amount <= 0) {
+    throw new Error('Payment amount must be greater than zero.');
+  }
   if (data.amount > prevOutstanding) {
     throw new Error(`Payment amount (Rs. ${data.amount}) cannot exceed customer outstanding balance (Rs. ${prevOutstanding}).`);
   }
@@ -1148,6 +1229,7 @@ export async function recordPayment(data: {
   const { data: newP, error: pErr } = await supabase.from('payments').insert({
     receipt_number: receiptNumber,
     financial_year: fyInfo.fyString,
+    invoice_id: data.invoiceId || null,
     customer_id: data.customerId,
     customer_name: data.customerName,
     customer_phone: data.customerPhone,

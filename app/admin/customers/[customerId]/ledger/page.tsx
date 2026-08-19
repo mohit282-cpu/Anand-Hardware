@@ -106,9 +106,12 @@ export default function CustomerLedgerPage() {
           </div>
 
           <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">All Time Purchases</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">All Time Purchases &amp; Advances</span>
             <p className="font-black text-navy-950 text-base">Rs. {(customer.totalPurchases || 0).toLocaleString()}</p>
             <p className="text-emerald-700 font-bold">Total Paid: Rs. {(customer.totalPaid || 0).toLocaleString()}</p>
+            {(customer.advanceBalance || 0) > 0 && (
+              <p className="text-emerald-600 font-bold mt-1">Advance Balance: Rs. {(customer.advanceBalance || 0).toLocaleString()}</p>
+            )}
           </div>
 
           <div className="sm:text-right">

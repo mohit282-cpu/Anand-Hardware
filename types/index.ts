@@ -12,7 +12,9 @@ export type PaymentType = 'FULL_PAYMENT' | 'PARTIAL_PAYMENT' | 'CREDIT';
 
 export type PaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'CARD' | 'CHEQUE' | 'OTHER';
 
-export type CustomerLedgerType = 'SALE_CREDIT' | 'PAYMENT' | 'RETURN' | 'ADJUSTMENT' | 'CANCELLED_SALE';
+export type PaymentCategory = 'SALE_PAYMENT' | 'CREDIT_PAYMENT' | 'ADVANCE_PAYMENT' | 'REFUND' | 'ADJUSTMENT';
+
+export type CustomerLedgerType = 'SALE_CREDIT' | 'PAYMENT' | 'RETURN' | 'ADJUSTMENT' | 'CANCELLED_SALE' | 'ADVANCE' | 'ADVANCE_APPLIED';
 
 export type UserRole = 'admin' | 'staff';
 
@@ -75,6 +77,7 @@ export interface Customer {
   totalPurchases?: number;
   totalPaid?: number;
   currentOutstanding?: number;
+  advanceBalance?: number;
   creditLimit?: number;
   createdAt: string;
   updatedAt: string;
@@ -153,6 +156,8 @@ export interface Invoice {
   total: number;
   paidAmount: number;
   creditAmount: number;
+  advanceAmount?: number;
+  advanceUsed?: number;
   paymentType: PaymentType;
   status: InvoiceStatus;
   notes?: string;
@@ -175,6 +180,7 @@ export interface Payment {
   customerPhone: string;
   amount: number;
   paymentMethod: PaymentMethod;
+  paymentCategory?: PaymentCategory;
   previousOutstanding: number;
   remainingOutstanding: number;
   note?: string;

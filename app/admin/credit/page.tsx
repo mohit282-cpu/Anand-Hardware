@@ -3,13 +3,14 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Wallet, Search, Plus, CreditCard, RefreshCw, AlertTriangle, CheckCircle2, History, ArrowRight } from 'lucide-react';
-import { getCustomers, recordPayment } from '@/lib/supabase/services';
-import { Customer, PaymentMethod } from '@/types';
+import { getCustomers, getInvoices, recordPayment } from '@/lib/supabase/services';
+import { Customer, Invoice, PaymentMethod } from '@/types';
 import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function CreditManagementPage() {
   const { userProfile } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -23,8 +24,48 @@ export default function CreditManagementPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const data = await getCustomers();
-      setCustomers(data);
+      const [custData, invData] = await Promise.all([
+        getCustomers(),
+        getInvoices(),
+      ]);
+
+      // Combine customers with any credit invoices whose customer was not in customer table
+      const custMap = new Map<string, Customer>();
+      (custData || []).forEach(c => custMap.set(c.id, c));
+
+      // Synthesize missing debtors from credit invoices if any
+      (invData || []).forEach(inv => {
+        const credit = Number(inv.creditAmount) || (inv.status === 'CREDIT' ? Number(inv.total) : 0);
+        if (credit > 0) {
+          const custId = inv.customerId || inv.customer?.id;
+          if (custId && custMap.has(custId)) {
+            const existing = custMap.get(custId)!;
+            // Ensure outstanding is at least the invoice credit
+            if (!existing.currentOutstanding || existing.currentOutstanding < credit) {
+              existing.currentOutstanding = Math.max(existing.currentOutstanding || 0, credit);
+            }
+          } else if (inv.customer?.name || inv.customer?.phone) {
+            // Unregistered credit debtor from invoice
+            const synthId = custId || `synth-${inv.id}`;
+            if (!custMap.has(synthId)) {
+              custMap.set(synthId, {
+                id: synthId,
+                name: inv.customer.name || 'Walk-in Customer',
+                phone: inv.customer.phone || '',
+                company: inv.customer.company || 'Walk-in Customer',
+                totalPurchases: Number(inv.total),
+                totalPaid: Number(inv.paidAmount),
+                currentOutstanding: credit,
+                createdAt: inv.createdAt,
+                updatedAt: inv.updatedAt,
+              });
+            }
+          }
+        }
+      });
+
+      setCustomers(Array.from(custMap.values()));
+      setInvoices(invData || []);
     } catch (err) {
       console.error('Error loading customer credit:', err);
     } finally {
@@ -47,15 +88,10 @@ export default function CreditManagementPage() {
     e.preventDefault();
     if (!selectedCustomer || paymentAmount <= 0) return;
 
-    if (paymentAmount > (selectedCustomer.currentOutstanding || 0)) {
-      alert(`Payment amount (NPR ${paymentAmount.toLocaleString()}) cannot exceed outstanding balance (NPR ${(selectedCustomer.currentOutstanding || 0).toLocaleString()}).`);
-      return;
-    }
-
     setRecording(true);
     try {
       const receiptId = await recordPayment({
-        customerId: selectedCustomer.id,
+        customerId: selectedCustomer.id.startsWith('synth-') ? '' : selectedCustomer.id,
         customerName: selectedCustomer.name,
         customerPhone: selectedCustomer.phone,
         amount: paymentAmount,
@@ -64,7 +100,7 @@ export default function CreditManagementPage() {
         createdBy: userProfile?.displayName || userProfile?.email || 'Admin Staff',
       });
 
-      alert('Payment recorded successfully!');
+      alert('Payment recorded successfully! Receipt issued.');
       setSelectedCustomer(null);
       await loadData();
     } catch (err: any) {
@@ -75,12 +111,25 @@ export default function CreditManagementPage() {
     }
   };
 
-  const creditCustomers = customers.filter(c => (c.currentOutstanding || 0) > 0);
+  const [filterType, setFilterType] = useState<'all' | 'outstanding' | 'walkin' | 'registered' | 'settled'>('outstanding');
+
+  const walkinCustomers = customers.filter(c => c.company === 'Walk-in Customer' || c.company === 'Walk-in Debtor' || c.id.startsWith('synth-'));
+  const registeredCustomers = customers.filter(c => c.company !== 'Walk-in Customer' && c.company !== 'Walk-in Debtor' && !c.id.startsWith('synth-'));
+
   const totalOutstanding = customers.reduce((acc, c) => acc + (c.currentOutstanding || 0), 0);
-  const totalPurchases = customers.reduce((acc, c) => acc + (c.totalPurchases || 0), 0);
+  const walkinOutstanding = walkinCustomers.reduce((acc, c) => acc + (c.currentOutstanding || 0), 0);
+  const registeredOutstanding = registeredCustomers.reduce((acc, c) => acc + (c.currentOutstanding || 0), 0);
   const totalPaid = customers.reduce((acc, c) => acc + (c.totalPaid || 0), 0);
 
   const filteredCustomers = customers.filter(c => {
+    const outstanding = c.currentOutstanding || 0;
+    const isWalkin = c.company === 'Walk-in Customer' || c.company === 'Walk-in Debtor' || c.id.startsWith('synth-');
+
+    if (filterType === 'outstanding' && outstanding <= 0) return false;
+    if (filterType === 'settled' && outstanding > 0) return false;
+    if (filterType === 'walkin' && !isWalkin) return false;
+    if (filterType === 'registered' && isWalkin) return false;
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       return (
@@ -98,16 +147,30 @@ export default function CreditManagementPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-navy-950">Credit / Udhar Management</h1>
-          <p className="text-xs text-slate-500 mt-1">Track outstanding customer balances, payment receipts, and credit limits in Biratnagar.</p>
+          <p className="text-xs text-slate-500 mt-1">Track outstanding customer balances, walk-in debtors, and receipt collections in Biratnagar.</p>
         </div>
 
-        <button
-          onClick={loadData}
-          className="px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold rounded-xl transition flex items-center gap-1.5 self-start"
-        >
-          <RefreshCw className="w-4 h-4" />
-          <span>Refresh Data</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => {
+              if (customers.length > 0) {
+                const firstDebtor = customers.find(c => (c.currentOutstanding || 0) > 0) || customers[0];
+                openPaymentModal(firstDebtor);
+              }
+            }}
+            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow transition flex items-center gap-1.5"
+          >
+            <CreditCard className="w-4 h-4" />
+            <span>Pay Udhar / Collect Payment</span>
+          </button>
+          <button
+            onClick={loadData}
+            className="px-3.5 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold rounded-xl transition flex items-center gap-1.5"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       {/* KPI METRICS GRID */}
@@ -115,31 +178,29 @@ export default function CreditManagementPage() {
         <div className="bg-navy-950 text-white rounded-3xl p-5 shadow-lg border border-navy-900">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Outstanding Udhar</span>
           <p className="text-2xl font-black text-amber-400 mt-1">NPR {totalOutstanding.toLocaleString()}</p>
-          <span className="text-[11px] text-slate-400 mt-2 block">{creditCustomers.length} customers with balance</span>
+          <span className="text-[11px] text-slate-400 mt-2 block">All active credit balances</span>
         </div>
 
         <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Customer Sales</span>
-          <p className="text-2xl font-black text-navy-950 mt-1">NPR {totalPurchases.toLocaleString()}</p>
-          <span className="text-[11px] text-slate-500 mt-2 block">All time billed amount</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Walk-in Debtor Udhar</span>
+          <p className="text-2xl font-black text-brand-600 mt-1">NPR {walkinOutstanding.toLocaleString()}</p>
+          <span className="text-[11px] text-slate-500 mt-2 block">{walkinCustomers.filter(c => (c.currentOutstanding || 0) > 0).length} walk-in debtors</span>
+        </div>
+
+        <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Registered Customer Udhar</span>
+          <p className="text-2xl font-black text-blue-600 mt-1">NPR {registeredOutstanding.toLocaleString()}</p>
+          <span className="text-[11px] text-slate-500 mt-2 block">{registeredCustomers.filter(c => (c.currentOutstanding || 0) > 0).length} registered accounts</span>
         </div>
 
         <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Payments Collected</span>
           <p className="text-2xl font-black text-emerald-600 mt-1">NPR {totalPaid.toLocaleString()}</p>
-          <span className="text-[11px] text-slate-500 mt-2 block">Cash / Transfers received</span>
-        </div>
-
-        <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Credit Collection Rate</span>
-          <p className="text-2xl font-black text-brand-600 mt-1">
-            {totalPurchases > 0 ? `${Math.round((totalPaid / totalPurchases) * 100)}%` : '100%'}
-          </p>
-          <span className="text-[11px] text-slate-500 mt-2 block">Percentage collected</span>
+          <span className="text-[11px] text-slate-500 mt-2 block">Cash / Bank receipts</span>
         </div>
       </div>
 
-      {/* Toolbar */}
+      {/* Toolbar & Filter Tabs */}
       <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -147,9 +208,31 @@ export default function CreditManagementPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search credit customer by name or phone..."
+            placeholder="Search debtor by name or phone..."
             className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:ring-2 focus:ring-brand-500 focus:outline-none"
           />
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+          {[
+            { id: 'outstanding', label: 'Outstanding Debtors' },
+            { id: 'all', label: 'All Debtors' },
+            { id: 'walkin', label: 'Walk-in Debtors' },
+            { id: 'registered', label: 'Registered' },
+            { id: 'settled', label: 'Fully Settled' },
+          ].map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setFilterType(t.id as any)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
+                filterType === t.id
+                  ? 'bg-navy-950 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -258,6 +341,12 @@ export default function CreditManagementPage() {
                 <span className="text-slate-600">Current Outstanding:</span>
                 <span className="text-amber-700">Rs. {(selectedCustomer.currentOutstanding || 0).toLocaleString()}</span>
               </div>
+              {(selectedCustomer.advanceBalance || 0) > 0 && (
+                <div className="flex justify-between font-bold text-emerald-700 pt-1">
+                  <span>Current Advance Balance:</span>
+                  <span>Rs. {(selectedCustomer.advanceBalance || 0).toLocaleString()}</span>
+                </div>
+              )}
             </div>
 
             <form onSubmit={handleRecordPayment} className="space-y-4 text-xs">
@@ -268,12 +357,16 @@ export default function CreditManagementPage() {
                 <input
                   type="number"
                   min="1"
-                  max={selectedCustomer.currentOutstanding || 0}
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(Number(e.target.value))}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   required
                 />
+                {paymentAmount > (selectedCustomer.currentOutstanding || 0) && (
+                  <p className="text-[11px] font-bold text-emerald-700 mt-1.5 p-2 bg-emerald-50 rounded-xl border border-emerald-200">
+                    Overpayment Notice: Rs. {(paymentAmount - (selectedCustomer.currentOutstanding || 0)).toLocaleString()} will be automatically stored in Customer Advance Balance.
+                  </p>
+                )}
               </div>
 
               <div>

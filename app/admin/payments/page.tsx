@@ -14,6 +14,7 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [methodFilter, setMethodFilter] = useState('ALL');
+  const [categoryFilter, setCategoryFilter] = useState('ALL');
 
   // Record Payment Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -49,11 +50,6 @@ export default function PaymentsPage() {
     e.preventDefault();
     if (!selectedCust || amount <= 0) return;
 
-    if (amount > (selectedCust.currentOutstanding || 0)) {
-      alert(`Payment amount (NPR ${amount.toLocaleString()}) exceeds customer outstanding balance (NPR ${(selectedCust.currentOutstanding || 0).toLocaleString()}).`);
-      return;
-    }
-
     setRecording(true);
     try {
       const newReceiptId = await recordPayment({
@@ -82,6 +78,7 @@ export default function PaymentsPage() {
 
   const filteredPayments = payments.filter((p) => {
     if (methodFilter !== 'ALL' && p.paymentMethod !== methodFilter) return false;
+    if (categoryFilter !== 'ALL' && (p.paymentCategory || 'SALE_PAYMENT') !== categoryFilter) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       return (
@@ -100,7 +97,7 @@ export default function PaymentsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-navy-950">Payment Collection Records</h1>
-          <p className="text-xs text-slate-500 mt-1">Audit trail of cash, Fonepay, and cheque payments with official receipts.</p>
+          <p className="text-xs text-slate-500 mt-1">Unified payment log covering bill payments, credit collections, and advance balances.</p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
@@ -124,7 +121,19 @@ export default function PaymentsPage() {
           />
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto">
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:bg-white focus:outline-none"
+          >
+            <option value="ALL">All Categories</option>
+            <option value="SALE_PAYMENT">Sale Payments</option>
+            <option value="CREDIT_PAYMENT">Credit Payments</option>
+            <option value="ADVANCE_PAYMENT">Advance Payments</option>
+            <option value="REFUND">Refunds</option>
+            <option value="ADJUSTMENT">Adjustments</option>
+          </select>
           <select
             value={methodFilter}
             onChange={(e) => setMethodFilter(e.target.value)}
@@ -159,6 +168,7 @@ export default function PaymentsPage() {
                 <tr>
                   <th className="py-3.5 px-4">Receipt Number</th>
                   <th className="py-3.5 px-4">Customer</th>
+                  <th className="py-3.5 px-4 text-center">Category</th>
                   <th className="py-3.5 px-4 text-center">Method</th>
                   <th className="py-3.5 px-4 text-right">Amount Received (NPR)</th>
                   <th className="py-3.5 px-4 text-right">Remaining Udhar</th>
@@ -166,47 +176,61 @@ export default function PaymentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {filteredPayments.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50/80 transition">
-                    <td className="py-3.5 px-4 font-mono font-bold text-navy-950">
-                      <Link href={`/admin/payments/${p.id}`} className="hover:text-emerald-600">
-                        {p.receiptNumber}
-                      </Link>
-                      <span className="text-[10px] text-slate-400 block font-sans">
-                        {new Date(p.createdAt).toLocaleDateString()} • FY {p.financialYear || 'Current'}
-                      </span>
-                    </td>
+                {filteredPayments.map((p) => {
+                  const category = p.paymentCategory || 'SALE_PAYMENT';
+                  return (
+                    <tr key={p.id} className="hover:bg-slate-50/80 transition">
+                      <td className="py-3.5 px-4 font-mono font-bold text-navy-950">
+                        <Link href={`/admin/payments/${p.id}`} className="hover:text-emerald-600">
+                          {p.receiptNumber}
+                        </Link>
+                        <span className="text-[10px] text-slate-400 block font-sans">
+                          {new Date(p.createdAt).toLocaleDateString()} • FY {p.financialYear || 'Current'}
+                        </span>
+                      </td>
 
-                    <td className="py-3.5 px-4">
-                      <span className="font-bold text-navy-950 block">{p.customerName}</span>
-                      <span className="text-[11px] text-slate-500">{p.customerPhone}</span>
-                    </td>
+                      <td className="py-3.5 px-4">
+                        <span className="font-bold text-navy-950 block">{p.customerName}</span>
+                        <span className="text-[11px] text-slate-500">{p.customerPhone}</span>
+                      </td>
 
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
-                        {p.paymentMethod}
-                      </span>
-                    </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border ${
+                          category === 'SALE_PAYMENT' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                          category === 'CREDIT_PAYMENT' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                          category === 'ADVANCE_PAYMENT' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          'bg-slate-100 text-slate-700 border-slate-200'
+                        }`}>
+                          {category.replace('_', ' ')}
+                        </span>
+                      </td>
 
-                    <td className="py-3.5 px-4 text-right font-black text-emerald-700 text-sm">
-                      Rs. {p.amount.toLocaleString()}
-                    </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
+                          {p.paymentMethod}
+                        </span>
+                      </td>
 
-                    <td className="py-3.5 px-4 text-right font-bold text-amber-700">
-                      Rs. {p.remainingOutstanding.toLocaleString()}
-                    </td>
+                      <td className="py-3.5 px-4 text-right font-black text-emerald-700 text-sm">
+                        Rs. {p.amount.toLocaleString()}
+                      </td>
 
-                    <td className="py-3.5 px-4 text-right">
-                      <Link
-                        href={`/admin/payments/${p.id}`}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-navy-950 text-xs font-bold rounded-lg transition inline-flex items-center gap-1"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>Print Receipt</span>
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                      <td className="py-3.5 px-4 text-right font-bold text-amber-700">
+                        Rs. {p.remainingOutstanding.toLocaleString()}
+                      </td>
+
+                      <td className="py-3.5 px-4 text-right">
+                        <Link
+                          href={`/admin/payments/${p.id}`}
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-navy-950 text-xs font-bold rounded-lg transition inline-flex items-center gap-1"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Print Receipt</span>
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

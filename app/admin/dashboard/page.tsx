@@ -33,6 +33,9 @@ interface DashboardMetrics {
   pendingQuotations: number;
   totalQuotations: number;
   recentTransactionsCount: number;
+  totalOutstandingUdhar: number;
+  walkinOutstandingUdhar: number;
+  registeredOutstandingUdhar: number;
 }
 
 async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
@@ -48,6 +51,7 @@ async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
     pendingQuotationsRes,
     totalQuotationsRes,
     txnCountRes,
+    creditBalancesRes,
   ] = await Promise.all([
     // Total products count
     supabase.from('products').select('id', { count: 'exact', head: true }),
@@ -77,7 +81,16 @@ async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
     supabase.from('quotations').select('id', { count: 'exact', head: true }),
     // Recent inventory transactions count
     supabase.from('inventory_transactions').select('id', { count: 'exact', head: true }),
+    // Outstanding customer balances for credit metrics
+    supabase.from('customers').select('company, current_outstanding').gt('current_outstanding', 0),
   ]);
+
+  const customerBalances = (creditBalancesRes.data || []) as any[];
+  const totalOutstandingUdhar = customerBalances.reduce((acc, c) => acc + (Number(c.current_outstanding) || 0), 0);
+  const walkinOutstandingUdhar = customerBalances
+    .filter(c => c.company === 'Walk-in Customer' || c.company === 'Walk-in Debtor')
+    .reduce((acc, c) => acc + (Number(c.current_outstanding) || 0), 0);
+  const registeredOutstandingUdhar = totalOutstandingUdhar - walkinOutstandingUdhar;
 
   // Filter low stock products client-side (Supabase .or() with column comparison is limited)
   const lowStockProducts = (lowStockRes.data || [])
@@ -120,6 +133,9 @@ async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
     pendingQuotations: pendingQuotationsRes.count ?? 0,
     totalQuotations: totalQuotationsRes.count ?? 0,
     recentTransactionsCount: txnCountRes.count ?? 0,
+    totalOutstandingUdhar,
+    walkinOutstandingUdhar,
+    registeredOutstandingUdhar,
   };
 }
 
@@ -271,20 +287,22 @@ export default function AdminDashboardPage() {
           </Link>
         </div>
 
-        {/* Pending Quotations */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+        {/* Outstanding Udhar */}
+        <div className="bg-white rounded-2xl p-6 border border-amber-200 bg-amber-50/20 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Pending Quotes</span>
-            <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
-              <FileSpreadsheet className="w-5 h-5" />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Outstanding Credit (Udhar)</span>
+            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-700">
+              <Wallet className="w-5 h-5" />
             </div>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-3xl font-black text-navy-950">{metrics.pendingQuotations}</span>
-            <span className="text-xs font-semibold text-emerald-600">{metrics.totalQuotations} Total Created</span>
+            <span className="text-2xl font-black text-amber-700">Rs. {metrics.totalOutstandingUdhar.toLocaleString()}</span>
+            <span className="text-[11px] font-semibold text-slate-500">
+              Walk-in: Rs. {metrics.walkinOutstandingUdhar.toLocaleString()}
+            </span>
           </div>
-          <Link href="/admin/quotations" className="text-xs font-bold text-brand-600 hover:underline flex items-center gap-1">
-            <span>Quotations List</span>
+          <Link href="/admin/credit" className="text-xs font-bold text-brand-600 hover:underline flex items-center gap-1">
+            <span>Manage Udhar Ledgers</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
