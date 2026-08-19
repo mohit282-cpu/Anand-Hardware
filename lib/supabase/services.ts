@@ -1191,9 +1191,42 @@ export async function recordPayment(data: {
   createdBy: string;
   invoiceId?: string;
 }): Promise<string> {
+  let resolvedCustId = (data.customerId || '').trim();
+
+  // If customerId is invalid, empty, or synthesized, search or create customer by phone/name
+  if (!resolvedCustId || resolvedCustId.startsWith('synth-') || !resolvedCustId.includes('-')) {
+    try {
+      const cleanPhone = (data.customerPhone || '').trim();
+      const cleanName = (data.customerName || '').trim();
+
+      if (cleanPhone) {
+        const { data: existing } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('phone', cleanPhone)
+          .limit(1)
+          .maybeSingle();
+        if (existing?.id) {
+          resolvedCustId = existing.id;
+        }
+      }
+
+      if (!resolvedCustId || resolvedCustId.startsWith('synth-') || !resolvedCustId.includes('-')) {
+        resolvedCustId = await createCustomer({
+          name: cleanName || 'Walk-in Customer',
+          phone: cleanPhone || '0000000000',
+          company: 'Walk-in Customer',
+          notes: 'Walk-in debtor created during credit payment collection',
+        });
+      }
+    } catch (err) {
+      console.warn('Customer resolution during payment fallback:', err);
+    }
+  }
+
   // Try atomic PostgreSQL RPC first
   const { data: rpcData, error: rpcError } = await supabase.rpc('receive_credit_payment', {
-    p_customer_id: data.customerId,
+    p_customer_id: resolvedCustId,
     p_amount: data.amount,
     p_payment_method: data.paymentMethod,
     p_note: data.note || '',
@@ -1261,6 +1294,15 @@ export async function recordPayment(data: {
     description: `Payment Received (${data.paymentMethod}) — Receipt #${receiptNumber}`,
     created_by: data.createdBy,
   });
+
+  // If debt is settled, transition customer invoices to PAID
+  if (remainingOutstanding === 0) {
+    await supabase
+      .from('invoices')
+      .update({ status: 'PAID', credit_amount: 0, updated_at: new Date().toISOString() })
+      .eq('customer_id', data.customerId)
+      .in('status', ['CREDIT', 'PARTIALLY_PAID']);
+  }
 
   return newP.id;
 }

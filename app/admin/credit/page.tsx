@@ -91,7 +91,7 @@ export default function CreditManagementPage() {
     setRecording(true);
     try {
       const receiptId = await recordPayment({
-        customerId: selectedCustomer.id.startsWith('synth-') ? '' : selectedCustomer.id,
+        customerId: selectedCustomer.id,
         customerName: selectedCustomer.name,
         customerPhone: selectedCustomer.phone,
         amount: paymentAmount,
@@ -151,18 +151,18 @@ export default function CreditManagementPage() {
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          <button
-            onClick={() => {
-              if (customers.length > 0) {
-                const firstDebtor = customers.find(c => (c.currentOutstanding || 0) > 0) || customers[0];
-                openPaymentModal(firstDebtor);
-              }
-            }}
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow transition flex items-center gap-1.5"
-          >
-            <CreditCard className="w-4 h-4" />
-            <span>Pay Udhar / Collect Payment</span>
-          </button>
+          {customers.some(c => (c.currentOutstanding || 0) > 0) && (
+            <button
+              onClick={() => {
+                const firstDebtor = customers.find(c => (c.currentOutstanding || 0) > 0);
+                if (firstDebtor) openPaymentModal(firstDebtor);
+              }}
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow transition flex items-center gap-1.5"
+            >
+              <CreditCard className="w-4 h-4" />
+              <span>Pay Udhar / Collect Payment</span>
+            </button>
+          )}
           <button
             onClick={loadData}
             className="px-3.5 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold rounded-xl transition flex items-center gap-1.5"
@@ -216,10 +216,10 @@ export default function CreditManagementPage() {
         <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
           {[
             { id: 'outstanding', label: 'Outstanding Debtors' },
+            { id: 'settled', label: 'Paid Section (Fully Settled)' },
             { id: 'all', label: 'All Debtors' },
             { id: 'walkin', label: 'Walk-in Debtors' },
             { id: 'registered', label: 'Registered' },
-            { id: 'settled', label: 'Fully Settled' },
           ].map((t) => (
             <button
               key={t.id}
@@ -243,7 +243,7 @@ export default function CreditManagementPage() {
         ) : filteredCustomers.length === 0 ? (
           <div className="p-12 text-center text-xs text-slate-500 space-y-3">
             <Wallet className="w-10 h-10 text-slate-300 mx-auto" />
-            <p className="font-bold text-navy-950 text-sm">No Customer Credit Records Found</p>
+            <p className="font-bold text-navy-950 text-sm">No Debtors Found in Selected Category</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -254,15 +254,14 @@ export default function CreditManagementPage() {
                   <th className="py-3.5 px-4 text-right">Total Billed</th>
                   <th className="py-3.5 px-4 text-right">Total Paid</th>
                   <th className="py-3.5 px-4 text-right">Outstanding Udhar</th>
-                  <th className="py-3.5 px-4 text-center">Credit Limit</th>
+                  <th className="py-3.5 px-4 text-center">Status</th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {filteredCustomers.map((c) => {
                   const outstanding = c.currentOutstanding || 0;
-                  const creditLimit = c.creditLimit || 0;
-                  const isLimitExceeded = creditLimit > 0 && outstanding > creditLimit;
+                  const isPaid = outstanding <= 0;
 
                   return (
                     <tr key={c.id} className="hover:bg-slate-50/80 transition">
@@ -285,12 +284,16 @@ export default function CreditManagementPage() {
                       </td>
 
                       <td className="py-3.5 px-4 text-center font-semibold">
-                        {creditLimit > 0 ? (
-                          <span className={`px-2 py-1 rounded text-[10px] ${isLimitExceeded ? 'bg-rose-100 text-rose-800 font-bold border border-rose-200' : 'bg-slate-100 text-slate-700'}`}>
-                            Rs. {creditLimit.toLocaleString()}
+                        {isPaid ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            <span>FULLY PAID</span>
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-[10px]">No Limit</span>
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 inline-flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3 text-amber-600" />
+                            <span>OUTSTANDING UDHAR</span>
+                          </span>
                         )}
                       </td>
 
@@ -309,7 +312,7 @@ export default function CreditManagementPage() {
                             className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition inline-flex items-center gap-1 shadow-sm"
                           >
                             <CreditCard className="w-3.5 h-3.5" />
-                            <span>Record Payment</span>
+                            <span>Pay Udhar</span>
                           </button>
                         )}
                       </td>

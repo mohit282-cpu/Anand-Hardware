@@ -299,6 +299,23 @@ BEGIN
     );
   END IF;
 
+  -- 7. Transition paid credit invoices to PAID status when debt is cleared
+  IF p_invoice_id IS NOT NULL AND v_new_outstanding = 0 THEN
+    UPDATE public.invoices
+    SET status = 'PAID',
+        paid_amount = total,
+        credit_amount = 0.00,
+        updated_at = NOW()
+    WHERE id = p_invoice_id;
+  ELSIF v_new_outstanding = 0 THEN
+    UPDATE public.invoices
+    SET status = 'PAID',
+        paid_amount = total,
+        credit_amount = 0.00,
+        updated_at = NOW()
+    WHERE customer_id = p_customer_id AND status IN ('CREDIT', 'PARTIALLY_PAID');
+  END IF;
+
   RETURN jsonb_build_object(
     'success', true,
     'payment_id', v_payment_id,
