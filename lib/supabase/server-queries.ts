@@ -1,5 +1,6 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { Product, Category } from '@/types';
+import { Product, Category, BusinessSettings } from '@/types';
+import { DEFAULT_SETTINGS } from '@/lib/supabase/services';
 
 // --------------------------------------------------------
 // PUBLIC SERVER-SIDE QUERIES
@@ -292,5 +293,36 @@ export async function getProductBySlugServer(slug: string): Promise<Product | nu
   } catch (err) {
     console.error('Error in getProductBySlugServer:', err);
     return null;
+  }
+}
+
+/**
+ * Fetch business settings for public headers, footers, contact page, and layout.
+ */
+export async function getBusinessSettingsServer(): Promise<BusinessSettings> {
+  try {
+    const supabase = getPublicClient();
+    const { data, error } = await supabase.from('business_settings').select('*').eq('id', 'default').single();
+    if (error || !data) return DEFAULT_SETTINGS;
+    return {
+      businessName: data.business_name || DEFAULT_SETTINGS.businessName,
+      logoUrl: data.logo_url || '',
+      phone: data.phone || DEFAULT_SETTINGS.phone,
+      email: data.email || DEFAULT_SETTINGS.email,
+      address: data.address || DEFAULT_SETTINGS.address,
+      website: data.website || DEFAULT_SETTINGS.website,
+      openingHours: data.opening_hours || DEFAULT_SETTINGS.openingHours,
+      whatsapp: data.whatsapp || DEFAULT_SETTINGS.whatsapp,
+      facebook: data.facebook || '',
+      instagram: data.instagram || '',
+      taxId: data.tax_id || DEFAULT_SETTINGS.taxId,
+      quotationPrefix: data.quotation_prefix || DEFAULT_SETTINGS.quotationPrefix,
+      invoicePrefix: data.invoice_prefix || DEFAULT_SETTINGS.invoicePrefix,
+      receiptPrefix: data.receipt_prefix || DEFAULT_SETTINGS.receiptPrefix,
+      updatedAt: data.updated_at,
+    };
+  } catch (err) {
+    console.error('Error in getBusinessSettingsServer:', err);
+    return DEFAULT_SETTINGS;
   }
 }

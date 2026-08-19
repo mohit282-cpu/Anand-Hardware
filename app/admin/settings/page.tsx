@@ -49,6 +49,8 @@ export default function AdminSettingsPage() {
     setToastMsg(null);
     try {
       await updateBusinessSettings(values);
+      const freshData = await getBusinessSettings();
+      reset(freshData);
       setToastMsg('Business settings updated successfully!');
     } catch (err: any) {
       console.error('Failed to update settings:', err);

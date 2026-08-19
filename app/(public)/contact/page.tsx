@@ -1,17 +1,26 @@
 import React from 'react';
-import { MapPin, Phone, Mail, Clock } from 'lucide-react';
+import { MapPin, Phone, Mail, Clock, MessageSquare } from 'lucide-react';
 import { ContactForm } from '@/components/public/ContactForm';
+import { getBusinessSettingsServer } from '@/lib/supabase/server-queries';
 
-// Incremental Static Regeneration (ISR): Cache & revalidate every 1 hour (3600s)
-export const revalidate = 3600;
+export const revalidate = 60;
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const settings = await getBusinessSettingsServer();
+
+  const businessName = settings?.businessName || 'Anand Hardware';
+  const address = settings?.address || 'Main Road, Ward No. 7, Biratnagar, Morang, Nepal';
+  const phone = settings?.phone || '+977 21-523456';
+  const email = settings?.email || 'info@anandhardware.com';
+  const whatsapp = settings?.whatsapp || '+977 9801234567';
+  const openingHours = settings?.openingHours || 'Sunday - Friday: 8:00 AM - 7:00 PM';
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
       {/* Title */}
       <div className="text-center max-w-2xl mx-auto space-y-3">
         <span className="text-xs font-bold text-brand-600 uppercase tracking-widest block">Get In Touch</span>
-        <h1 className="text-3xl sm:text-4xl font-black text-navy-950">Contact Anand Hardware</h1>
+        <h1 className="text-3xl sm:text-4xl font-black text-navy-950">Contact {businessName}</h1>
         <p className="text-xs text-slate-600">
           Have questions about pricing, bulk contractor rates, or stock availability? Call us or send an online inquiry.
         </p>
@@ -26,9 +35,7 @@ export default function ContactPage() {
             </div>
             <div>
               <h3 className="text-sm font-bold text-navy-950">Store Address</h3>
-              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                Main Road, Ward No. 7, Biratnagar, Morang, Nepal
-              </p>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">{address}</p>
             </div>
           </div>
 
@@ -37,9 +44,11 @@ export default function ContactPage() {
               <Phone className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-navy-950">Phone & Mobile</h3>
-              <p className="text-xs text-slate-600 mt-1">Landline: +977 21-523456</p>
-              <p className="text-xs text-slate-600">Mobile / WhatsApp: +977 9801234567</p>
+              <h3 className="text-sm font-bold text-navy-950">Phone & WhatsApp</h3>
+              <p className="text-xs text-slate-600 mt-1">Landline: {phone}</p>
+              {whatsapp && (
+                <p className="text-xs text-slate-600">Mobile / WhatsApp: {whatsapp}</p>
+              )}
             </div>
           </div>
 
@@ -49,8 +58,7 @@ export default function ContactPage() {
             </div>
             <div>
               <h3 className="text-sm font-bold text-navy-950">Email Address</h3>
-              <p className="text-xs text-slate-600 mt-1">info@anandhardware.com</p>
-              <p className="text-xs text-slate-600">sales@anandhardware.com</p>
+              <p className="text-xs text-slate-600 mt-1">{email}</p>
             </div>
           </div>
 
@@ -60,8 +68,7 @@ export default function ContactPage() {
             </div>
             <div>
               <h3 className="text-sm font-bold text-navy-950">Opening Hours</h3>
-              <p className="text-xs text-slate-600 mt-1">Sunday - Friday: 8:00 AM - 7:00 PM</p>
-              <p className="text-xs font-semibold text-rose-500">Saturday: Closed</p>
+              <p className="text-xs text-slate-600 mt-1">{openingHours}</p>
             </div>
           </div>
         </div>
@@ -71,7 +78,7 @@ export default function ContactPage() {
           <div className="border-b border-slate-100 pb-4">
             <h2 className="text-xl font-bold text-navy-950">Send an Inquiry or Quote Request</h2>
             <p className="text-xs text-slate-500 mt-1">
-              Fill in your contact details and message. Our sales team in Biratnagar will get back to you promptly.
+              Fill in your contact details and message. Our sales team will get back to you promptly.
             </p>
           </div>
 

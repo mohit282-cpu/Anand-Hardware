@@ -1,10 +1,17 @@
 import React from 'react';
 import Link from 'next/link';
-import { ShieldCheck, MapPin, Wrench, Building2, Truck } from 'lucide-react';
+import { ShieldCheck, MapPin, Wrench, Building2, Truck, Phone } from 'lucide-react';
+import { getBusinessSettingsServer } from '@/lib/supabase/server-queries';
 
-export const revalidate = 3600;
+export const revalidate = 60;
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const settings = await getBusinessSettingsServer();
+
+  const businessName = settings?.businessName || 'Anand Hardware';
+  const address = settings?.address || 'Main Road, Ward No. 7, Biratnagar, Morang, Nepal';
+  const taxId = settings?.taxId || '';
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
       {/* Hero Header */}
@@ -14,7 +21,7 @@ export default function AboutPage() {
           Biratnagar’s Trusted Hardware & Construction Partner
         </h1>
         <p className="text-sm text-slate-600 leading-relaxed">
-          For over two decades, Anand Hardware has been at the forefront of providing authentic building supplies, PVC piping networks, electrical wiring, cements, Asian paints, and heavy metalware across Morang and Eastern Nepal.
+          For over two decades, {businessName} has been at the forefront of providing authentic building supplies, PVC piping networks, electrical wiring, cements, Asian paints, and heavy metalware across Morang and Eastern Nepal.
         </p>
       </div>
 
@@ -54,18 +61,18 @@ export default function AboutPage() {
       {/* Business Details Card */}
       <div className="bg-navy-950 text-white rounded-3xl p-8 sm:p-12 shadow-xl flex flex-col md:flex-row items-center justify-between gap-8">
         <div className="space-y-4">
-          <h2 className="text-2xl sm:text-3xl font-black">Visit Our Showroom in Biratnagar</h2>
+          <h2 className="text-2xl sm:text-3xl font-black">Visit Our Showroom — {businessName}</h2>
           <p className="text-xs text-slate-300 max-w-lg leading-relaxed">
             Our main store and warehouse feature complete displays of plumbing setups, electrical switches, paints tinting machines, and structural hardware.
           </p>
           <div className="space-y-2 text-xs text-slate-300">
             <p className="flex items-center gap-2">
               <MapPin className="w-4 h-4 text-brand-500" />
-              Main Road, Ward No. 7, Biratnagar, Morang, Nepal
+              {address}
             </p>
             <p className="flex items-center gap-2">
               <Wrench className="w-4 h-4 text-brand-500" />
-              PAN / VAT Registered Business
+              {taxId ? `PAN / VAT ID: ${taxId}` : 'PAN / VAT Registered Business'}
             </p>
           </div>
         </div>

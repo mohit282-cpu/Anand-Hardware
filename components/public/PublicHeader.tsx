@@ -2,14 +2,29 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Phone, MapPin, Clock, Menu, X, FileText, Wrench, UserCheck } from 'lucide-react';
+import { Phone, MapPin, Clock, Menu, X, FileText, Wrench, UserCheck, MessageSquare } from 'lucide-react';
 import { QuotationModal } from '@/components/public/QuotationModal';
+import { BusinessSettings } from '@/types';
 
-export function PublicHeader() {
+interface PublicHeaderProps {
+  settings?: BusinessSettings;
+}
+
+export function PublicHeader({ settings }: PublicHeaderProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [quoteModalOpen, setQuoteModalOpen] = useState(false);
+
+  const [logoError, setLogoError] = useState(false);
+
+  const businessName = settings?.businessName || 'ANAND HARDWARE';
+  const address = settings?.address || 'Main Road, Ward 7, Biratnagar, Nepal';
+  const phone = settings?.phone || '+977 21-523456';
+  const whatsapp = settings?.whatsapp;
+  const openingHours = settings?.openingHours || 'Sun – Fri: 8:00 AM – 7:00 PM';
+  const logoUrl = settings?.logoUrl;
 
   const navLinks = [
     { name: 'Home', href: '/' },
@@ -27,21 +42,32 @@ export function PublicHeader() {
           <div className="flex items-center gap-3 sm:gap-4 flex-wrap justify-center sm:justify-start">
             <span className="flex items-center gap-1.5 text-slate-300">
               <MapPin className="w-3.5 h-3.5 text-brand-500 shrink-0" />
-              Main Road, Ward 7, Biratnagar, Nepal
+              <span>{address}</span>
             </span>
             <span className="hidden md:flex items-center gap-1.5 border-l border-navy-800 pl-4 text-slate-300">
               <Clock className="w-3.5 h-3.5 text-brand-500 shrink-0" />
-              Sun – Fri: 8:00 AM – 7:00 PM
+              <span>{openingHours}</span>
             </span>
           </div>
           <div className="flex items-center gap-4">
             <a
-              href="tel:+97721523456"
+              href={`tel:${phone.replace(/[^0-9+]/g, '')}`}
               className="flex items-center gap-1.5 font-medium hover:text-white transition"
             >
               <Phone className="w-3.5 h-3.5 text-brand-500 shrink-0" />
-              <span>+977 21-523456</span>
+              <span>{phone}</span>
             </a>
+            {whatsapp && (
+              <a
+                href={`https://wa.me/${whatsapp.replace(/[^0-9]/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden sm:flex items-center gap-1.5 font-medium text-emerald-400 hover:text-emerald-300 transition"
+              >
+                <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+                <span>WhatsApp</span>
+              </a>
+            )}
             <span className="text-slate-700">|</span>
             <Link
               href="/admin/login"
@@ -59,12 +85,23 @@ export function PublicHeader() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-11 h-11 bg-navy-950 rounded-xl flex items-center justify-center text-brand-500 shadow-md group-hover:scale-105 transition">
-              <Wrench className="w-6 h-6" />
-            </div>
+            {logoUrl && !logoError ? (
+              <div className="relative w-11 h-11 bg-white rounded-xl flex items-center justify-center p-1 shadow-md border border-slate-200 group-hover:scale-105 transition overflow-hidden">
+                <img
+                  src={logoUrl}
+                  alt={businessName}
+                  className="w-full h-full object-contain"
+                  onError={() => setLogoError(true)}
+                />
+              </div>
+            ) : (
+              <div className="w-11 h-11 bg-navy-950 rounded-xl flex items-center justify-center text-brand-500 shadow-md group-hover:scale-105 transition">
+                <Wrench className="w-6 h-6" />
+              </div>
+            )}
             <div>
-              <span className="text-xl font-black tracking-tight text-navy-950 block leading-none">
-                ANAND HARDWARE
+              <span className="text-xl font-black tracking-tight text-navy-950 block leading-none uppercase">
+                {businessName}
               </span>
               <span className="text-[10px] font-bold tracking-widest text-brand-600 uppercase block mt-1">
                 Building Supplies & Hardware
