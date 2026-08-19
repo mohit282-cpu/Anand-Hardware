@@ -894,6 +894,20 @@ export async function createInvoice(data: {
 }
 
 export async function confirmInvoice(invoiceId: string, staffName?: string): Promise<void> {
+  // Try atomic PostgreSQL RPC procedure first
+  const { data: rpcData, error: rpcError } = await supabase.rpc('confirm_invoice', {
+    p_invoice_id: invoiceId,
+  });
+
+  if (!rpcError && rpcData?.success) {
+    return;
+  }
+
+  if (rpcError && !rpcError.message.includes('function') && !rpcError.message.includes('not found')) {
+    throw new Error(`Failed to confirm invoice: ${rpcError.message}`);
+  }
+
+  // Application-level transactional execution fallback
   const invoice = await getInvoiceById(invoiceId);
   if (!invoice) throw new Error('Invoice not found.');
   if (invoice.status !== 'DRAFT') throw new Error('Only draft invoices can be confirmed.');
@@ -971,6 +985,22 @@ export async function confirmInvoice(invoiceId: string, staffName?: string): Pro
 }
 
 export async function cancelInvoice(invoiceId: string, reason: string, staffName: string): Promise<void> {
+  // Try atomic PostgreSQL RPC procedure first
+  const { data: rpcData, error: rpcError } = await supabase.rpc('cancel_invoice', {
+    p_invoice_id: invoiceId,
+    p_reason: reason,
+    p_staff_name: staffName,
+  });
+
+  if (!rpcError && rpcData?.success) {
+    return;
+  }
+
+  if (rpcError && !rpcError.message.includes('function') && !rpcError.message.includes('not found')) {
+    throw new Error(`Failed to cancel invoice: ${rpcError.message}`);
+  }
+
+  // Application-level transactional execution fallback
   const invoice = await getInvoiceById(invoiceId);
   if (!invoice) throw new Error('Invoice not found.');
   if (invoice.status === 'CANCELLED') throw new Error('Invoice is already cancelled.');
