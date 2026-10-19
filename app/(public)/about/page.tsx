@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { ShieldCheck, MapPin, Wrench, Building2, Truck, Phone } from 'lucide-react';
 import { getBusinessSettingsServer } from '@/lib/supabase/server-queries';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 
 export const revalidate = 60;
 
@@ -9,11 +10,50 @@ export default async function AboutPage() {
   const settings = await getBusinessSettingsServer();
 
   const businessName = settings?.businessName || 'Anand Hardware';
-  const address = settings?.address || 'Main Road, Ward No. 7, Biratnagar, Morang, Nepal';
+  const address = settings?.address;
   const taxId = settings?.taxId || '';
+  const phone = settings?.phone || '';
+  const email = settings?.email || '';
+  const website = settings?.website || '';
+  const logoUrl = settings?.logoUrl || '';
+
+  // Build Schema.org Organization data - only include verified fields
+  const organizationData: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: businessName,
+  };
+
+  if (website) {
+    organizationData['url'] = website;
+  }
+  if (logoUrl) {
+    organizationData['logo'] = logoUrl;
+  }
+  if (phone) {
+    organizationData['telephone'] = phone;
+  }
+  if (email) {
+    organizationData['email'] = email;
+  }
+  if (address) {
+    organizationData['address'] = {
+      '@type': 'PostalAddress',
+      addressLocality: 'Biratnagar',
+      addressRegion: 'Morang',
+      addressCountry: 'NP',
+    };
+  }
+  // sameAs is omitted when social links are not available to avoid incomplete data
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
+      <Breadcrumbs
+        items={[
+          { label: 'Home', href: '/', current: false },
+          { label: 'About', href: '/about', current: true },
+        ]}
+      />
       {/* Hero Header */}
       <div className="text-center max-w-3xl mx-auto space-y-4">
         <span className="text-xs font-bold text-brand-600 uppercase tracking-widest block">About Our Company</span>
@@ -92,6 +132,22 @@ export default async function AboutPage() {
           </Link>
         </div>
       </div>
+
+      {/* Schema.org Organization markup */}
+      {businessName && (
+        <div
+          suppressHydrationWarning
+          className="hidden"
+          id="schema-organization"
+        >
+          <script
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify(organizationData, null, 2),
+            }}
+            type="application/ld+json"
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -15,6 +15,16 @@ const nextConfig = {
     // Cache optimized images for 1 hour minimum
     minimumCacheTTL: 3600,
   },
+  // Configure site icons (favicons)
+  icons: {
+    iconSizes: ['16x16', '32x32', '48x48', '64x64', '128x128', '256x256'],
+    iconUrls: [
+      '/favicon.ico',
+      '/favicon-16x16.png',
+      '/favicon-32x32.png',
+      '/favicon-48x48.png',
+    ],
+  },
 };
 
 export default nextConfig;

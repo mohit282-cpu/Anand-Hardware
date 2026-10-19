@@ -3,8 +3,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Layers, ArrowRight, PackageCheck } from 'lucide-react';
 import { getCategoriesServer } from '@/lib/supabase/server-queries';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 
-// ISR: Revalidate every 60 seconds
 export const revalidate = 60;
 
 export default async function CategoriesPage() {
@@ -12,11 +12,17 @@ export default async function CategoriesPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+      <Breadcrumbs
+        items={[
+          { label: 'Home', href: '/', current: false },
+          { label: 'Categories', href: '/categories', current: true },
+        ]}
+      />
       {/* Header */}
       <div className="border-b border-slate-200 pb-6">
         <h1 className="text-3xl font-black text-navy-950 tracking-tight">Product Categories</h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-1">
-          Browse Anand Hardware’s core supply categories for construction, plumbing, electrical, and finishing projects.
+          Browse Anand Hardware core supply categories for construction, plumbing, electrical, and finishing projects.
         </p>
       </div>
 

@@ -29,12 +29,22 @@ export const metadata: Metadata = {
     siteName: 'Anand Hardware',
     locale: 'en_US',
     type: 'website',
+    images: [
+      {
+        url: 'https://anandhardware.com/social-image.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Anand Hardware - Premier hardware supplier in Biratnagar, Nepal',
+      },
+    ],
   },
   robots: {
     index: true,
     follow: true,
   },
 };
+
+export const metadataBase = 'https://anandhardware.com';
 
 export default function RootLayout({
   children,

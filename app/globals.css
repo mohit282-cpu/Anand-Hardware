@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0s !important;
+    animation-transition: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @layer base {
   :root {
     --background: 210 40% 98%;

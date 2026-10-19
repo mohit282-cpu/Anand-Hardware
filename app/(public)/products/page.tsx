@@ -4,8 +4,8 @@ import Image from 'next/image';
 import { Search, Filter, Layers, FileText, CheckCircle2, ArrowRight, PackageCheck, SlidersHorizontal } from 'lucide-react';
 import { getCategoriesServer, getProductsServer } from '@/lib/supabase/server-queries';
 import { Category, Product } from '@/types';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 
-// ISR: Revalidate every 60 seconds
 export const revalidate = 60;
 
 interface ProductsPageProps {
@@ -40,6 +40,12 @@ export default async function ProductsCatalogPage({ searchParams }: ProductsPage
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+      <Breadcrumbs
+        items={[
+          { label: 'Home', href: '/', current: false },
+          { label: 'Products', href: '/products', current: true },
+        ]}
+      />
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
