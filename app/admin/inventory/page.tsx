@@ -48,7 +48,7 @@ export default function AdminInventoryPage() {
         getProducts(),
         getInventoryTransactions(),
       ]);
-      setProducts(prodData);
+      setProducts(prodData.products);
       setTransactions(txnData);
     } catch (err) {
       console.error('Error loading inventory data:', err);
