@@ -49,7 +49,33 @@ export default function AdminProductsPage() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const watchImageUrl = watch('imageUrl');
+  const {
+    register,
+    handleSubmit,
+    watch,
+    reset,
+    setValue,
+    formState: { errors }
+  } = useForm<ProductFormValues>({
+    resolver: zodResolver(productSchema),
+    defaultValues: {
+      name: '',
+      sku: '',
+      categoryId: '',
+      brand: '',
+      price: 0,
+      unit: 'Piece',
+      description: '',
+      specifications: '',
+      imageUrl: '',
+      imagePath: '',
+      imageAlt: '',
+      stock: 0,
+      lowStockLevel: 5,
+      featured: false,
+      active: true,
+    },
+  });
 
   // Debounced search — reset page to 1 when search changes
   useEffect(() => {
