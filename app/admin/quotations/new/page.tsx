@@ -32,7 +32,7 @@ function NewQuotationContent() {
   useEffect(() => {
     async function init() {
       try {
-        const prodData = await getProducts({ onlyActive: true });
+        const { products: prodData } = await getProducts({ onlyActive: true });
         setProducts(prodData);
 
         // Pre-fill initial item if passed from Lead CRM
