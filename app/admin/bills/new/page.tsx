@@ -43,7 +43,7 @@ function NewBillContent() {
           getProducts({ onlyActive: true }),
           getCustomers(),
         ]);
-        setProducts(prodData);
+        setProducts(prodData.products);
         setCustomers(custData);
 
         // Pre-fill from Quotation if converted
@@ -60,8 +60,8 @@ function NewBillContent() {
             setDiscount(q.discount);
             // Pre-fill default row if empty
             setItems(currentItems => {
-              if (currentItems.length === 0 && prodData.length > 0) {
-                const p = prodData[0];
+              if (currentItems.length === 0 && prodData.products.length > 0) {
+                const p = prodData.products[0];
                 return [{
                   productId: p.id,
                   productName: p.name,
