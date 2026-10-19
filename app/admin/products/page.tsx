@@ -30,6 +30,7 @@ export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -88,7 +89,7 @@ export default function AdminProductsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const { products: prodData, total } = await getProducts({
+      const { products: prodData, total: totalCount } = await getProducts({
         categoryId: selectedCategory === 'all' ? undefined : selectedCategory,
         onlyActive: true,
         searchQuery: searchQuery.trim() || undefined,
@@ -96,6 +97,7 @@ export default function AdminProductsPage() {
         pageSize,
       });
       setProducts(prodData);
+      setTotal(totalCount);
     } catch (err) {
       console.error('Error fetching products:', err);
     } finally {
