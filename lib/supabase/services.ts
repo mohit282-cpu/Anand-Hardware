@@ -201,9 +201,16 @@ export async function getProducts(options?: {
   onlyActive?: boolean;
   featured?: boolean;
   limitCount?: number;
-}): Promise<Product[]> {
+  page?: number;
+  pageSize?: number;
+  searchQuery?: string;
+}): Promise<{ products: Product[]; total: number }> {
+  const page = options?.page ?? 1;
+  const pageSize = options?.pageSize ?? 20;
+  const offset = (page - 1) * pageSize;
+
   let query = supabase.from('products')
-    .select('id, name, slug, sku, category_id, category_name, brand, price, unit, description, specifications, image_url, image_path, image_alt, stock, low_stock_level, featured, active, created_at, updated_at')
+    .select('id, name, slug, sku, category_id, category_name, brand, price, unit, description, specifications, image_url, image_path, image_alt, stock, low_stock_level, featured, active, created_at, updated_at', { count: 'exact' })
     .order('name', { ascending: true });
 
   if (options?.onlyActive) {
@@ -227,35 +234,47 @@ export async function getProducts(options?: {
   if (options?.featured) {
     query = query.eq('featured', true);
   }
+  if (options?.searchQuery && options.searchQuery.trim()) {
+    const q = options.searchQuery.toLowerCase();
+    query = query.ilike('name', `%${q}%`).or(`sku.ilike.%${q}%,brand.ilike.%${q}%`);
+  }
   if (options?.limitCount && options.limitCount > 0) {
     query = query.limit(options.limitCount);
+  } else {
+    // Apply pagination when no limitCount specified
+    query = query.range(offset, offset + pageSize - 1);
   }
 
   const { data, error } = await query;
   if (error) throw error;
 
-  return (data || []).map(p => ({
-    id: p.id,
-    name: p.name,
-    slug: p.slug,
-    sku: p.sku,
-    categoryId: p.category_id || '',
-    categoryName: p.category_name || '',
-    brand: p.brand || '',
-    price: Number(p.price) || 0,
-    unit: p.unit || 'pcs',
-    description: p.description || '',
-    specifications: p.specifications || {},
-    imageUrl: p.image_url || '',
-    imagePath: p.image_path || '',
-    imageAlt: p.image_alt || '',
-    stock: p.stock || 0,
-    lowStockLevel: p.low_stock_level || 10,
-    featured: p.featured || false,
-    active: p.active !== false,
-    createdAt: p.created_at,
-    updatedAt: p.updated_at,
-  }));
+  const total = data ? (await supabase.from('products').select('id', { count: 'exact', head: true })).count : 0;
+
+  return {
+    products: (data || []).map(p => ({
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      sku: p.sku,
+      categoryId: p.category_id || '',
+      categoryName: p.category_name || '',
+      brand: p.brand || '',
+      price: Number(p.price) || 0,
+      unit: p.unit || 'pcs',
+      description: p.description || '',
+      specifications: p.specifications || {},
+      imageUrl: p.image_url || '',
+      imagePath: p.image_path || '',
+      imageAlt: p.image_alt || '',
+      stock: p.stock || 0,
+      lowStockLevel: p.low_stock_level || 10,
+      featured: p.featured || false,
+      active: p.active !== false,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+    })),
+    total,
+  };
 }
 
 export async function getProductById(id: string): Promise<Product | null> {
@@ -439,17 +458,25 @@ export async function addInventoryTransaction(
     let newStock = currentStock;
 
     if (data.type === 'STOCK_IN' || data.type === 'RETURN') {
-      newStock += data.quantity;
+      newStock = currentStock + data.quantity;
     } else if (data.type === 'STOCK_OUT' || data.type === 'DAMAGE') {
       if (data.quantity > currentStock) {
         return { success: false, message: `Insufficient stock for ${data.productName}. Available: ${currentStock}, Requested: ${data.quantity}` };
       }
-      newStock -= data.quantity;
+      newStock = currentStock - data.quantity;
     } else if (data.type === 'ADJUSTMENT') {
       newStock = data.quantity;
+    } else {
+      return { success: false, message: `Invalid transaction type: ${data.type}` };
     }
 
-    await supabase.from('products').update({ stock: newStock, updated_at: new Date().toISOString() }).eq('id', data.productId);
+    const { error: updateErr } = await supabase
+      .from('products')
+      .update({ stock: newStock, updated_at: new Date().toISOString() })
+      .eq('id', data.productId);
+
+    if (updateErr) throw updateErr;
+
     await supabase.from('inventory_transactions').insert({
       product_id: data.productId,
       product_name: data.productName,

@@ -31,7 +31,7 @@ export default function AdminLoginPage() {
     setError(null);
     try {
       await login(email.trim(), password);
-      window.location.href = '/admin/dashboard';
+      router.replace('/admin/dashboard');
     } catch (err: any) {
       console.error('Login error:', err);
       const msg = err.message || '';

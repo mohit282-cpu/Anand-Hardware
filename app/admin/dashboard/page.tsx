@@ -39,7 +39,7 @@ interface DashboardMetrics {
 }
 
 async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
-  // Run all lightweight queries in parallel
+  // Run queries in parallel — credit totals now computed server-side via RPC
   const [
     productsCountRes,
     activeProductsRes,
@@ -51,7 +51,7 @@ async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
     pendingQuotationsRes,
     totalQuotationsRes,
     txnCountRes,
-    creditBalancesRes,
+    creditTotalsRes,
   ] = await Promise.all([
     // Total products count
     supabase.from('products').select('id', { count: 'exact', head: true }),
@@ -81,16 +81,14 @@ async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
     supabase.from('quotations').select('id', { count: 'exact', head: true }),
     // Recent inventory transactions count
     supabase.from('inventory_transactions').select('id', { count: 'exact', head: true }),
-    // Outstanding customer balances for credit metrics
-    supabase.from('customers').select('company, current_outstanding').gt('current_outstanding', 0),
+    // Outstanding customer balances — computed server-side
+    supabase.rpc('get_dashboard_credit_totals'),
   ]);
 
-  const customerBalances = (creditBalancesRes.data || []) as any[];
-  const totalOutstandingUdhar = customerBalances.reduce((acc, c) => acc + (Number(c.current_outstanding) || 0), 0);
-  const walkinOutstandingUdhar = customerBalances
-    .filter(c => c.company === 'Walk-in Customer' || c.company === 'Walk-in Debtor')
-    .reduce((acc, c) => acc + (Number(c.current_outstanding) || 0), 0);
-  const registeredOutstandingUdhar = totalOutstandingUdhar - walkinOutstandingUdhar;
+  const customerBalances = (creditTotalsRes.data || [])[0] as any;
+  const totalOutstandingUdhar = Number(customerBalances?.total_outstanding || 0);
+  const walkinOutstandingUdhar = Number(customerBalances?.walkin_outstanding || 0);
+  const registeredOutstandingUdhar = Number(customerBalances?.registered_outstanding || 0);
 
   // Filter low stock products client-side (Supabase .or() with column comparison is limited)
   const lowStockProducts = (lowStockRes.data || [])

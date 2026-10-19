@@ -42,22 +42,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           uid: currentUser.id,
           email: currentUser.email || profile.email,
           displayName: profile.display_name || currentUser.user_metadata?.displayName || 'Staff Member',
-          role: (profile.role as any) || 'admin',
+          role: profile.role || 'staff',
         });
       } else {
+        // CRITICAL: Missing profile should NOT default to 'admin' role.
+        // Default to 'staff' and require explicit profile creation via onboarding.
+        // Never trust client-side user_metadata role as the sole authorization mechanism.
         setUserProfile({
           uid: currentUser.id,
           email: currentUser.email || '',
           displayName: currentUser.user_metadata?.displayName || 'Anand Hardware Staff',
-          role: (currentUser.user_metadata?.role as any) || 'admin',
+          role: 'staff',
         });
       }
     } catch {
+      // If profile fetch fails unexpectedly, default to staff — never admin.
       setUserProfile({
         uid: currentUser.id,
         email: currentUser.email || '',
         displayName: currentUser.user_metadata?.displayName || 'Anand Hardware Staff',
-        role: (currentUser.user_metadata?.role as any) || 'admin',
+        role: 'staff',
       });
     }
   };

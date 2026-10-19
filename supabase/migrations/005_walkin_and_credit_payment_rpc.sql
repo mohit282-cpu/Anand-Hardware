@@ -22,6 +22,9 @@ DECLARE
   v_fy_key TEXT;
   v_fy_string TEXT;
 BEGIN
+  -- Ensure predictable search path to prevent object resolution ambiguity
+  SET search_path = public;
+
   -- 1. Lock & fetch customer row
   SELECT * INTO v_cust FROM public.customers WHERE id = p_customer_id FOR UPDATE;
   IF NOT FOUND THEN

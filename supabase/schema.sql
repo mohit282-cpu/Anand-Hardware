@@ -277,27 +277,89 @@ DROP POLICY IF EXISTS "Authenticated Staff Ledger" ON public.customer_ledger;
 DROP POLICY IF EXISTS "Authenticated Staff Sequences" ON public.financial_sequences;
 DROP POLICY IF EXISTS "Authenticated Staff Settings" ON public.business_settings;
 
--- Public Read for Catalog Data
+-- Public Read for Catalog Data (public visitors can view active products/categories)
 CREATE POLICY "Public Read Categories" ON public.categories FOR SELECT USING (active = true);
 CREATE POLICY "Public Read Products" ON public.products FOR SELECT USING (active = true);
 CREATE POLICY "Public Read Settings" ON public.business_settings FOR SELECT USING (true);
 CREATE POLICY "Public Insert Leads" ON public.leads FOR INSERT WITH CHECK (status = 'NEW');
 
--- Staff/Admin Full Access Policies
-CREATE POLICY "Authenticated Staff Profiles" ON public.profiles FOR ALL USING (true);
-CREATE POLICY "Authenticated Staff Categories" ON public.categories FOR ALL USING (true);
-CREATE POLICY "Authenticated Staff Products" ON public.products FOR ALL USING (true);
-CREATE POLICY "Authenticated Staff Inventory" ON public.inventory_transactions FOR ALL USING (true);
-CREATE POLICY "Authenticated Staff Customers" ON public.customers FOR ALL USING (true);
-CREATE POLICY "Authenticated Staff Leads" ON public.leads FOR ALL USING (true);
-CREATE POLICY "Authenticated Staff Quotations" ON public.quotations FOR ALL USING (true);
-CREATE POLICY "Authenticated Staff Quotation Items" ON public.quotation_items FOR ALL USING (true);
-CREATE POLICY "Authenticated Staff Invoices" ON public.invoices FOR ALL USING (true);
-CREATE POLICY "Authenticated Staff Invoice Items" ON public.invoice_items FOR ALL USING (true);
-CREATE POLICY "Authenticated Staff Payments" ON public.payments FOR ALL USING (true);
-CREATE POLICY "Authenticated Staff Ledger" ON public.customer_ledger FOR ALL USING (true);
-CREATE POLICY "Authenticated Staff Sequences" ON public.financial_sequences FOR ALL USING (true);
-CREATE POLICY "Authenticated Staff Settings" ON public.business_settings FOR ALL USING (true);
+-- Staff/Admin Full Access (authenticated users only - requires valid JWT role check)
+-- These policies require auth.uid() IS NOT NULL to prevent anonymous/unauthenticated access.
+-- Role-based enforcement (admin vs staff) is handled at the application/JWT level; never trust
+-- client-side role values as the sole authorization mechanism.
+
+CREATE POLICY "Auth Staff Profiles"
+  ON public.profiles FOR ALL
+  USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Auth Staff Categories"
+  ON public.categories FOR ALL
+  USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Auth Staff Products"
+  ON public.products FOR ALL
+  USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Auth Staff Inventory"
+  ON public.inventory_transactions FOR ALL
+  USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Auth Staff Customers"
+  ON public.customers FOR ALL
+  USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Auth Staff Leads"
+  ON public.leads FOR ALL
+  USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Auth Staff Quotations"
+  ON public.quotations FOR ALL
+  USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Auth Staff Quotation Items"
+  ON public.quotation_items FOR ALL
+  USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Auth Staff Invoices"
+  ON public.invoices FOR ALL
+  USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Auth Staff Invoice Items"
+  ON public.invoice_items FOR ALL
+  USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Auth Staff Payments"
+  ON public.payments FOR ALL
+  USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Auth Staff Ledger"
+  ON public.customer_ledger FOR ALL
+  USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Auth Staff Sequences"
+  ON public.financial_sequences FOR ALL
+  USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Auth Staff Settings"
+  ON public.business_settings FOR ALL
+  USING (auth.uid() IS NOT NULL);
+
+-- Dashboard credit totals RPC — aggregates outstanding balances server-side
+CREATE OR REPLACE FUNCTION public.get_dashboard_credit_totals()
+RETURNS TABLE(
+  total_outstanding NUMERIC(12,2),
+  walkin_outstanding NUMERIC(12,2),
+  registered_outstanding NUMERIC(12,2)
+) AS $$
+BEGIN
+  SELECT
+    COALESCE(SUM(current_outstanding), 0)::NUMERIC(12,2) AS total_outstanding,
+    COALESCE(SUM(CASE WHEN company IN ('Walk-in Customer', 'Walk-in Debtor') THEN current_outstanding ELSE 0 END), 0)::NUMERIC(12,2) AS walkin_outstanding,
+    COALESCE(SUM(CASE WHEN company NOT IN ('Walk-in Customer', 'Walk-in Debtor') AND current_outstanding > 0 THEN current_outstanding ELSE 0 END), 0)::NUMERIC(12,2) AS registered_outstanding
+  FROM public.customers
+  WHERE current_outstanding > 0;
+END;
+$$ LANGUAGE plpgsql STABLE;
 
 -- STORED PROCEDURE: ATOMIC SEQUENCE GENERATOR (FOR UPDATE LOCKING)
 CREATE OR REPLACE FUNCTION public.get_next_sequence_number(
@@ -307,6 +369,9 @@ CREATE OR REPLACE FUNCTION public.get_next_sequence_number(
 DECLARE
   v_next INT;
 BEGIN
+  -- Ensure predictable search path to prevent object resolution ambiguity
+  SET search_path = public;
+
   INSERT INTO public.financial_sequences (seq_type, financial_year_key, last_number, updated_at)
   VALUES (p_seq_type, p_fy_key, 1, NOW())
   ON CONFLICT (seq_type, financial_year_key)
@@ -323,6 +388,9 @@ VALUES ('product-images', 'product-images', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
 -- Storage Policies for product-images bucket
+-- Public read access is allowed (bucket is public), but write operations require authentication.
+-- This prevents unauthenticated users from uploading, updating, or deleting product images.
+
 DROP POLICY IF EXISTS "Public Read Product Images" ON storage.objects;
 DROP POLICY IF EXISTS "Allow Product Images Upload" ON storage.objects;
 DROP POLICY IF EXISTS "Allow Product Images Update" ON storage.objects;
@@ -332,14 +400,14 @@ CREATE POLICY "Public Read Product Images"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'product-images');
 
-CREATE POLICY "Allow Product Images Upload"
+CREATE POLICY "Auth Upload Product Images"
   ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'product-images');
+  WITH CHECK (bucket_id = 'product-images' AND auth.uid() IS NOT NULL);
 
-CREATE POLICY "Allow Product Images Update"
+CREATE POLICY "Auth Update Product Images"
   ON storage.objects FOR UPDATE
-  USING (bucket_id = 'product-images');
+  USING (bucket_id = 'product-images' AND auth.uid() IS NOT NULL);
 
-CREATE POLICY "Allow Product Images Delete"
+CREATE POLICY "Auth Delete Product Images"
   ON storage.objects FOR DELETE
-  USING (bucket_id = 'product-images');
+  USING (bucket_id = 'product-images' AND auth.uid() IS NOT NULL);

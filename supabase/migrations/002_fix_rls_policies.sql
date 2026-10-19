@@ -26,6 +26,9 @@ DROP POLICY IF EXISTS "Authenticated Staff Settings" ON public.business_settings
 
 -- 2. Recreate staff policies WITH auth.uid() check
 -- Only authenticated users can access private data
+-- These replace the old USING (true) policies. Role-based enforcement
+-- (admin vs staff) is handled at the application/JWT level; never trust
+-- client-side role values as the sole authorization mechanism.
 
 CREATE POLICY "Auth Staff Profiles"
   ON public.profiles FOR ALL
@@ -79,7 +82,7 @@ CREATE POLICY "Auth Staff Sequences"
   ON public.financial_sequences FOR ALL
   USING (auth.uid() IS NOT NULL);
 
-CREATE POLICY "Auth Staff Settings Write"
+CREATE POLICY "Auth Staff Settings"
   ON public.business_settings FOR ALL
   USING (auth.uid() IS NOT NULL);
 

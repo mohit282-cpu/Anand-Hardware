@@ -21,6 +21,10 @@ import { productSchema, ProductFormValues } from '@/lib/validation/schemas';
 import { getProducts, getCategories, createProduct, updateProduct, deleteProduct } from '@/lib/supabase/services';
 import { Product, Category } from '@/types';
 import { ProductImageUpload } from '@/components/admin/ProductImageUpload';
+import { useSearchParams, usePathname, useRouter } from 'next/navigation';
+
+// Debounced search timer
+const DEBOUNCE_DELAY = 300;
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -31,6 +35,10 @@ export default function AdminProductsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -38,43 +46,30 @@ export default function AdminProductsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    watch,
-    setValue,
-    formState: { errors },
-  } = useForm<ProductFormValues>({
-    resolver: zodResolver(productSchema),
-    defaultValues: {
-      name: '',
-      sku: '',
-      categoryId: '',
-      brand: '',
-      price: 0,
-      unit: 'Piece',
-      description: '',
-      specifications: '',
-      imageUrl: '',
-      stock: 0,
-      lowStockLevel: 5,
-      featured: false,
-      active: true,
-    },
-  });
+  const router = useRouter();
+  const pathname = usePathname();
 
   const watchImageUrl = watch('imageUrl');
+
+  // Debounced search — reset page to 1 when search changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+    }, DEBOUNCE_DELAY);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [prodData, catData] = await Promise.all([
-        getProducts(),
-        getCategories(),
-      ]);
+      const { products: prodData, total } = await getProducts({
+        categoryId: selectedCategory === 'all' ? undefined : selectedCategory,
+        onlyActive: true,
+        searchQuery: searchQuery.trim() || undefined,
+        page,
+        pageSize,
+      });
       setProducts(prodData);
-      setCategories(catData);
     } catch (err) {
       console.error('Error fetching products:', err);
     } finally {
@@ -84,14 +79,14 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [searchQuery, page, selectedCategory]);
 
   const openCreateModal = () => {
     setEditingProduct(null);
     reset({
       name: '',
       sku: '',
-      categoryId: categories.length > 0 ? categories[0].id : '',
+      categoryId: categories.length > 0 ? categories[0].id || '' : '',
       brand: '',
       price: 0,
       unit: 'Piece',
@@ -149,18 +144,23 @@ export default function AdminProductsPage() {
         });
         setToastMsg('Product updated successfully.');
       } else {
+        // Generate slug from name; server will enforce uniqueness
         await createProduct({
           ...values,
-          categoryName,
           slug: values.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
         });
         setToastMsg('New product created successfully.');
       }
       setIsModalOpen(false);
-      loadData();
+      setPage(1);
     } catch (err: any) {
       console.error('Failed to save product:', err);
-      alert(err.message || 'Failed to save product.');
+      // Show clear error for duplicate SKU/slug
+      if (err.message?.includes('duplicate key') || err.code === '23505') {
+        alert('Error: A product with that name, SKU, or slug already exists. Please use unique values.');
+      } else {
+        alert(err.message || 'Failed to save product.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -171,6 +171,7 @@ export default function AdminProductsPage() {
       await deleteProduct(id);
       setDeleteConfirmId(null);
       setToastMsg('Product deleted successfully.');
+      setPage(1);
       loadData();
     } catch (err: any) {
       console.error('Failed to delete product:', err);
@@ -196,7 +197,7 @@ export default function AdminProductsPage() {
     }
   };
 
-  // Filtered Products
+  // Filtered Products — category + search filtering on server-resp data
   const filteredProducts = products.filter((p) => {
     if (selectedCategory !== 'all' && p.categoryId !== selectedCategory) return false;
     if (searchQuery.trim()) {
@@ -390,6 +391,35 @@ export default function AdminProductsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {products.length > 0 && total > pageSize && (
+          <div className="p-4 border-t border-slate-200">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-500">
+                Showing {((page - 1) * pageSize) + 1}-{Math.min(page * pageSize, products.length)} of {total} products
+              </span>
+              <div className="flex gap-2">
+                {page > 1 && (
+                  <button
+                    onClick={() => setPage(page - 1)}
+                    className="p-1.5 rounded-lg transition text-slate-600 bg-slate-50 hover:bg-slate-100"
+                  >
+                    <span>Prev</span>
+                  </button>
+                )}
+                {page < Math.ceil(total / pageSize) && (
+                  <button
+                    onClick={() => setPage(page + 1)}
+                    className="p-1.5 rounded-lg transition text-slate-600 bg-slate-50 hover:bg-slate-100"
+                  >
+                    <span>Next</span>
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>

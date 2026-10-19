@@ -20,6 +20,9 @@ DECLARE
   v_receipt_seq INT;
   v_receipt_num TEXT;
 BEGIN
+  -- Ensure predictable search path to prevent object resolution ambiguity
+  SET search_path = public;
+
   -- 1. Lock & fetch invoice record
   SELECT * INTO v_invoice FROM public.invoices WHERE id = p_invoice_id FOR UPDATE;
   IF NOT FOUND THEN
@@ -138,6 +141,9 @@ DECLARE
   v_new_paid NUMERIC(12,2);
   v_new_outstanding NUMERIC(12,2);
 BEGIN
+  -- Ensure predictable search path to prevent object resolution ambiguity
+  SET search_path = public;
+
   -- 1. Lock & fetch invoice record
   SELECT * INTO v_invoice FROM public.invoices WHERE id = p_invoice_id FOR UPDATE;
   IF NOT FOUND THEN
