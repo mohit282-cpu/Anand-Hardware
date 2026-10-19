@@ -14,7 +14,8 @@ import {
   CheckCircle2,
   Clock,
   ChevronRight,
-  RefreshCw
+  RefreshCw,
+  XCircle,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { Lead, LeadStatus } from '@/types';
@@ -36,6 +37,12 @@ interface DashboardMetrics {
   totalOutstandingUdhar: number;
   walkinOutstandingUdhar: number;
   registeredOutstandingUdhar: number;
+}
+
+interface DashboardState {
+  metrics: DashboardMetrics | null;
+  loading: boolean;
+  error: string | null;
 }
 
 async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
@@ -138,18 +145,20 @@ async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
 }
 
 export default function AdminDashboardPage() {
-  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<DashboardState>({
+    metrics: null,
+    loading: true,
+    error: null,
+  });
 
   const loadDashboardData = async () => {
-    setLoading(true);
+    setState({ metrics: null, loading: true, error: null });
     try {
       const data = await fetchDashboardMetrics();
-      setMetrics(data);
-    } catch (err) {
+      setState({ metrics: data, loading: false, error: null });
+    } catch (err: any) {
       console.error('Error fetching dashboard data:', err);
-    } finally {
-      setLoading(false);
+      setState({ metrics: state.metrics, loading: false, error: err.message || 'Failed to load dashboard data' });
     }
   };
 
@@ -157,14 +166,24 @@ export default function AdminDashboardPage() {
     loadDashboardData();
   }, []);
 
+  const retry = () => {
+    setState(prev => ({ ...prev, loading: true, error: null }));
+    loadDashboardData();
+  };
+
   const handleStatusChange = async (leadId: string, status: LeadStatus) => {
     try {
       await updateLeadStatus(leadId, status);
-      setMetrics(prev => {
-        if (!prev) return prev;
+      setState(prev => {
+        if (!prev?.metrics) return prev;
         return {
           ...prev,
-          recentLeads: prev.recentLeads.map(l => l.id === leadId ? { ...l, status } : l),
+          metrics: {
+            ...prev.metrics,
+            recentLeads: prev.metrics.recentLeads.map(l =>
+              l.id === leadId ? { ...l, status } : l
+            ),
+          },
         };
       });
     } catch (err) {
@@ -172,18 +191,52 @@ export default function AdminDashboardPage() {
     }
   };
 
-  if (loading || !metrics) {
+  if (state.loading) {
     return (
-      <div className="space-y-6">
-        <div className="h-8 bg-slate-200 rounded-lg w-48 animate-pulse" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3, 4, 5, 6].map(n => (
-            <div key={n} className="h-32 bg-white rounded-2xl border border-slate-200 animate-pulse" />
-          ))}
+      <div className="min-h-screen bg-navy-950 flex items-center justify-center text-white">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs font-semibold text-slate-300">Loading Anand Hardware Admin Portal...</p>
         </div>
       </div>
     );
   }
+
+  if (state.error) {
+    return (
+      <div className="min-h-screen bg-slate-100 text-slate-900">
+        <div className="max-w-2xl mx-auto py-12 px-4">
+          <div className="bg-rose-600/10 border rose-400/20 rounded-xl p-6 mb-6">
+            <div className="flex items-center gap-3">
+              <XCircle className="w-5 h-5 text-rose-400" />
+              <div>
+                <p className="font-bold text-rose-600">Error loading dashboard</p>
+                <p className="text-sm text-slate-500">{state.error}</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={retry}
+              className="p-2 bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition flex items-center gap-1.5"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Retry</span>
+            </button>
+            <Link
+              href="/admin/quotations/new"
+              className="p-2 text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Continue Anyway</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const metrics = state.metrics!;
 
   return (
     <div className="space-y-8 pb-8">

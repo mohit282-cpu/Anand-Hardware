@@ -248,7 +248,27 @@ export async function getProducts(options?: {
   const { data, error } = await query;
   if (error) throw error;
 
-  const total = data ? (await supabase.from('products').select('id', { count: 'exact', head: true })).count : 0;
+  // Build count query with same filters as the product query for accurate totals
+  let countQuery = supabase.from('products').select('id', { count: 'exact', head: true });
+
+  if (options?.onlyActive) {
+    countQuery = countQuery.eq('active', true);
+  }
+  if (options?.categoryId && options.categoryId !== 'all') {
+    const validUuid = toValidUuidOrNull(options.categoryId);
+    if (validUuid) {
+      countQuery = countQuery.eq('category_id', validUuid);
+    }
+  }
+  if (options?.featured) {
+    countQuery = countQuery.eq('featured', true);
+  }
+  if (options?.searchQuery && options.searchQuery.trim()) {
+    const q = options.searchQuery.toLowerCase();
+    countQuery = countQuery.ilike('name', `%${q}%`).or(`sku.ilike.%${q}%,brand.ilike.%${q}%`);
+  }
+
+  const total = (await countQuery).count || 0;
 
   return {
     products: (data || []).map(p => ({
@@ -1272,6 +1292,19 @@ export async function recordPayment(data: {
   // Application-level transactional execution fallback
   const cust = await getCustomerById(data.customerId);
   if (!cust) throw new Error('Customer not found.');
+
+  // Idempotency check: prevent duplicate payments for same amount/customer
+  const existingPayment = await supabase
+    .from('payments')
+    .select('id, receipt_number')
+    .eq('customer_id', data.customerId)
+    .eq('amount', data.amount)
+    .maybeSingle();
+
+  if (existingPayment?.data) {
+    // Payment already recorded - return existing payment ID to avoid duplicates
+    return existingPayment.data.id;
+  }
 
   const prevOutstanding = cust.currentOutstanding || 0;
   if (data.amount <= 0) {

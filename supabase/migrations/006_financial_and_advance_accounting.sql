@@ -260,9 +260,10 @@ BEGIN
   v_new_advance := COALESCE(v_cust.advance_balance, 0.00) + v_excess_to_advance;
   v_new_total_paid := COALESCE(v_cust.total_paid, 0.00) + p_amount;
 
-  -- 2. Generate Receipt Sequence (REC-2082/83-0005)
-  v_fy_string := '2082/83';
-  v_fy_key := '2082-83';
+  -- 2. Generate Receipt Sequence using dynamic financial year key
+  -- Uses get_nepal_fy_key() to compute the current FY key instead of hardcoding '2082-83'
+  v_fy_key := public.get_nepal_fy_key();
+  v_fy_string := public.get_nepal_fy_string();
   v_receipt_seq := public.get_next_sequence_number('payments', v_fy_key);
   v_receipt_num := 'REC-' || v_fy_string || '-' || LPAD(v_receipt_seq::text, 4, '0');
 
@@ -330,5 +331,70 @@ BEGIN
     'remaining_outstanding', v_new_outstanding,
     'excess_advance', v_excess_to_advance
   );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+/* ---- Nepal Financial Year Helpers (replace hardcoded 2082/83) ---- */
+
+/** Compute the current Nepal FY key (e.g. '2082-83') based on the current date.
+ *  Same logic as lib/utils/nepalFY.ts getNepalFY(). */
+CREATE OR REPLACE FUNCTION public.get_nepal_fy_key()
+RETURNS TEXT AS $$
+DECLARE
+  g_year INT;
+  month INT;
+  day INT;
+  is_shrawan_or_later BOOLEAN;
+  bs_start_year INT;
+  short_end TEXT;
+BEGIN
+  g_year := EXTRACT(YEAR FROM CURRENT_DATE);
+  month := EXTRACT(MONTH FROM CURRENT_DATE);
+  day := EXTRACT(DAY FROM CURRENT_DATE);
+
+  -- Shrawan 1 typically falls on July 16 or 17
+  IF month > 6 THEN
+    is_shrawan_or_later := TRUE;
+  ELSIF month = 6 THEN
+    is_shrawan_or_later := day >= 16;
+  ELSE
+    is_shrawan_or_later := FALSE;
+  END IF;
+
+  bs_start_year := CASE WHEN is_shrawan_or_later THEN g_year + 57 ELSE g_year + 56 END;
+  short_end := RIGHT(bs_start_year + 1, 2);
+  RETURN bs_start_year::TEXT || '-' || short_end;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+/** Compute the current Nepal FY string (e.g. '2082/83') based on the current date. */
+CREATE OR REPLACE FUNCTION public.get_nepal_fy_string()
+RETURNS TEXT AS $$
+DECLARE
+  g_year INT;
+  month INT;
+  day INT;
+  is_shrawan_or_later BOOLEAN;
+  bs_start_year INT;
+  short_end TEXT;
+  fy_string TEXT;
+BEGIN
+  g_year := EXTRACT(YEAR FROM CURRENT_DATE);
+  month := EXTRACT(MONTH FROM CURRENT_DATE);
+  day := EXTRACT(DAY FROM CURRENT_DATE);
+
+  -- Shrawan 1 typically falls on July 16 or 17
+  IF month > 6 THEN
+    is_shrawan_or_later := TRUE;
+  ELSIF month = 6 THEN
+    is_shrawan_or_later := day >= 16;
+  ELSE
+    is_shrawan_or_later := FALSE;
+  END IF;
+
+  bs_start_year := CASE WHEN is_shrawan_or_later THEN g_year + 57 ELSE g_year + 56 END;
+  short_end := RIGHT(bs_start_year + 1, 2);
+  fy_string := bs_start_year::TEXT || '/' || short_end;
+  RETURN fy_string;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
