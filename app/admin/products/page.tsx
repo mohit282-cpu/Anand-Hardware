@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -86,13 +86,15 @@ export default function AdminProductsPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const loadData = async () => {
+  const searchQueryTrimmed = searchQuery.trim();
+
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const { products: prodData, total: totalCount } = await getProducts({
         categoryId: selectedCategory === 'all' ? undefined : selectedCategory,
         onlyActive: true,
-        searchQuery: searchQuery.trim() || undefined,
+        searchQuery: searchQueryTrimmed || undefined,
         page,
         pageSize,
       });
@@ -103,11 +105,11 @@ export default function AdminProductsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedCategory, page, searchQueryTrimmed]);
 
   useEffect(() => {
     loadData();
-  }, [searchQuery, page, selectedCategory]);
+  }, [loadData]);
 
   const openCreateModal = () => {
     setEditingProduct(null);

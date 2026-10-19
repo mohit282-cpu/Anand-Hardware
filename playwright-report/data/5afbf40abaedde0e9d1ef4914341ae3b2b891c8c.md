@@ -6,23 +6,29 @@
 
 # Test info
 
-- Name: app.spec.ts >> Anand Hardware Public Storefront & Admin E2E Suite >> Public Homepage loads successfully
-- Location: tests\e2e\app.spec.ts:4:7
+- Name: app.spec.ts >> Anand Hardware Public Storefront & Admin E2E Suite >> Admin Payments Log Page rendering
+- Location: tests\e2e\app.spec.ts:28:7
 
 # Error details
 
 ```
-Error: expect(page).toHaveTitle(expected) failed
+Error: expect(locator).toContainText(expected) failed
 
-Expected pattern: /Anand Hardware/i
-Received string:  ""
+Locator: locator('h1')
+Expected substring: "Payment"
+Received string:    "ANAND HARDWARE"
 Timeout: 5000ms
 
 Call log:
-  - Expect "toHaveTitle" with timeout 5000ms
-    14 × locator resolved to <html>…</html>
-       - unexpected value ""
+  - Expect "toContainText" locator('h1') with timeout 5000ms
+  - waiting for locator('h1')
+    14 × locator resolved to <h1 class="text-2xl font-black text-navy-950">ANAND HARDWARE</h1>
+       - unexpected value "ANAND HARDWARE"
 
+```
+
+```yaml
+- heading "ANAND HARDWARE" [level=1]
 ```
 
 # Test source
@@ -33,8 +39,7 @@ Call log:
   3  | test.describe('Anand Hardware Public Storefront & Admin E2E Suite', () => {
   4  |   test('Public Homepage loads successfully', async ({ page }) => {
   5  |     await page.goto('/');
-> 6  |     await expect(page).toHaveTitle(/Anand Hardware/i);
-     |                        ^ Error: expect(page).toHaveTitle(expected) failed
+  6  |     await expect(page).toHaveTitle(/Anand Hardware/i);
   7  |     await expect(page.locator('h1')).toBeVisible();
   8  |   });
   9  | 
@@ -58,7 +63,8 @@ Call log:
   27 | 
   28 |   test('Admin Payments Log Page rendering', async ({ page }) => {
   29 |     await page.goto('/admin/payments');
-  30 |     await expect(page.locator('h1')).toContainText('Payment');
+> 30 |     await expect(page.locator('h1')).toContainText('Payment');
+     |                                      ^ Error: expect(locator).toContainText(expected) failed
   31 |   });
   32 | });
   33 | 

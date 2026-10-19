@@ -42,9 +42,8 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  metadataBase: new URL('https://anandhardware.com'),
 };
-
-export const metadataBase = 'https://anandhardware.com';
 
 export default function RootLayout({
   children,

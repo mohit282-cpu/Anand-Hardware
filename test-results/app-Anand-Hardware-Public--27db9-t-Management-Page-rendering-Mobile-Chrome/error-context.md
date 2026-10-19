@@ -16,13 +16,19 @@ Error: expect(locator).toContainText(expected) failed
 
 Locator: locator('h1')
 Expected substring: "Credit"
+Received string:    "ANAND HARDWARE"
 Timeout: 5000ms
-Error: element(s) not found
 
 Call log:
   - Expect "toContainText" locator('h1') with timeout 5000ms
   - waiting for locator('h1')
+    14 × locator resolved to <h1 class="text-2xl font-black text-navy-950">ANAND HARDWARE</h1>
+       - unexpected value "ANAND HARDWARE"
 
+```
+
+```yaml
+- heading "ANAND HARDWARE" [level=1]
 ```
 
 # Test source

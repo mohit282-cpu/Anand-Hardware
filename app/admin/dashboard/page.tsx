@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Package,
@@ -151,20 +151,20 @@ export default function AdminDashboardPage() {
     error: null,
   });
 
-  const loadDashboardData = async () => {
-    setState({ metrics: null, loading: true, error: null });
+  const loadDashboardData = useCallback(async () => {
+    setState(prev => ({ metrics: null, loading: true, error: null }));
     try {
       const data = await fetchDashboardMetrics();
-      setState({ metrics: data, loading: false, error: null });
+      setState(prev => ({ metrics: data, loading: false, error: null }));
     } catch (err: any) {
       console.error('Error fetching dashboard data:', err);
-      setState({ metrics: state.metrics, loading: false, error: err.message || 'Failed to load dashboard data' });
+      setState(prev => ({ metrics: prev.metrics, loading: false, error: err.message || 'Failed to load dashboard data' }));
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [loadDashboardData]);
 
   const retry = () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
